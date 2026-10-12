@@ -1,0 +1,119 @@
+{
+  "date": "2026-10-12",
+  "scope": "界面设计优化后的实机交互与交付资源验收",
+  "environment": "Windows；Codex 内置浏览器；独立本地QA服务及数据目录",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "document_client_width": 1440,
+      "document_scroll_width": 1440
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "document_client_width": 382,
+      "document_scroll_width": 382
+    },
+    {
+      "width": 320,
+      "height": 780,
+      "document_client_width": 312,
+      "document_scroll_width": 312
+    }
+  ],
+  "checks": [
+    {
+      "name": "真实调试",
+      "passed": true,
+      "evidence": "启动暂停在执行前L1；单步后可设置L4断点；递归逐层命中，4层调用栈可查看。"
+    },
+    {
+      "name": "历史回放",
+      "passed": true,
+      "evidence": "读取已完成递归记录，键盘操作时间轴定位第13/34快照，显示4层栈；加载记录不重新执行。"
+    },
+    {
+      "name": "对象图",
+      "passed": true,
+      "evidence": "循环链表39个快照，输出A/B/C/A；图中o1→o2→o3→o1与真实变量一致；宽屏两列、窄屏单列。"
+    },
+    {
+      "name": "对象节点键盘",
+      "passed": true,
+      "evidence": "桌面Enter与320px窗口Space可展开o1，详情显示value=A与next→o2；Escape关闭并返回o1节点。"
+    },
+    {
+      "name": "标签组键盘",
+      "passed": true,
+      "evidence": "主标签支持左右、Home、End；检查器支持左右；选中标签tabindex=0，其余=-1；ARIA选中状态与面板一致。"
+    },
+    {
+      "name": "断点弹层",
+      "passed": true,
+      "evidence": "打开后输入获得焦点；Escape关闭且焦点回断点按钮；aria-expanded同步。"
+    },
+    {
+      "name": "窄屏抽屉",
+      "passed": true,
+      "evidence": "默认收起；展开可访问7示例和执行记录；主区inert；Shift+Tab在触发按钮和遮罩之间循环；Escape回焦；选择历史后自动收起。"
+    },
+    {
+      "name": "窄屏文字及按钮",
+      "passed": true,
+      "evidence": "390px代码14px、标签13px；320px图节点ID14px，操作按钮40px高，启动按钮独占一行；无整页横向溢出。"
+    },
+    {
+      "name": "AST",
+      "passed": true,
+      "evidence": "递归示例真实解析10行、1函数、1分支；树可折叠；最终分析面板底部955.99998px，页脚顶部956px，无重叠。"
+    },
+    {
+      "name": "性能实验",
+      "passed": true,
+      "evidence": "两种fibonacci(22)均输出17711；重复递归57313调用，记忆化43调用；UI实测8.39ms与0.08ms，仅为本轮单次测量；正式5次基准数据仍见benchmark_results.json。"
+    },
+    {
+      "name": "异常状态",
+      "passed": true,
+      "evidence": "ZeroDivisionError自动定位average的L4；第9/12快照，count=0、total=0；错误文字与状态颜色可见。"
+    },
+    {
+      "name": "浏览器日志",
+      "passed": true,
+      "evidence": "本轮预览标签捕获的error日志为空。"
+    },
+    {
+      "name": "源码回归",
+      "passed": true,
+      "evidence": "33项引擎/API测试全部通过，15.006秒。"
+    },
+    {
+      "name": "发行资源",
+      "passed": true,
+      "evidence": "12项冻结程序集成验收通过；最后CSS布局修正后再次核对9份模板/静态资源，逐字节一致；详见免安装版验证.json。"
+    }
+  ],
+  "code_review_only": [
+    "prefers-reduced-motion规则关闭非必要动画与过渡，未改变系统设置进行实测。",
+    "选定文字颜色对计算：secondary/raised 5.43:1、muted/surface 7.22:1、正文/panel 14.85:1、代码注释/editor 7.84:1、图提示/card 7.13:1；非全界面对比度审计。"
+  ],
+  "limitations": [
+    "不是完整WCAG符合性审核。",
+    "未实测所有浏览器、屏幕阅读器、操作系统与设备组合。",
+    "代码及性能表允许区域内横向滚动，检查结论针对整页无不必要横向溢出。"
+  ],
+  "screenshots": [
+    "screenshots/overview.jpg",
+    "screenshots/objects.jpg",
+    "screenshots/ast.jpg",
+    "screenshots/profile.jpg",
+    "screenshots/exception.jpg",
+    "screenshots/mobile.jpg"
+  ],
+  "source_sha256": {
+    "static/app.css": "1dd88567b86c5827d1f00e874b12be169d8747dd15f9e07d58233549b9f3f30c",
+    "static/app.js": "8565857c3a335645458e6b2022ed5f074044677cc7ec929430daad20fb7bef3f",
+    "templates/index.html": "a399bd3a49e72904faa9069230266f15f9fd9d850bc1e982ea0746ecbf91c137"
+  }
+}

@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+.pytest_cache/
+
+# Local settings and generated release bundles
+.env
+.env.*
+*.pem
+*.key
+*.log
+*.sqlite3
+Windows免安装版/
+dist/
+build/
+*.zip

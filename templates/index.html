@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1118">
+  <title>PyScope · Python 运行观察台</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/codemirror/codemirror.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='vendor/codemirror/codemirror.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='vendor/codemirror/python.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-workspace">跳到编辑工作区</a>
+  <header class="app-header">
+    <a class="brand" href="/" aria-label="PyScope 首页" translate="no"><span class="brand-mark" aria-hidden="true">P<span>›</span></span><span>PyScope<span class="brand-dot">.</span></span></a>
+    <span class="header-divider" aria-hidden="true"></span><span class="header-caption">Python 程序执行实验室</span>
+    <div class="header-end"><button type="button" class="workspace-menu-button subtle-button" id="workspace-menu-button" aria-controls="workspace-sidebar" aria-expanded="false">工作空间</button><span class="local-pill"><i aria-hidden="true"></i> 本地运行</span><button class="icon-button" id="help-button" title="使用说明与快捷键" aria-label="使用说明与快捷键">?</button></div>
+  </header>
+  <button type="button" id="workspace-backdrop" class="workspace-backdrop" aria-label="关闭工作空间" tabindex="-1" hidden></button>
+  <div class="app-shell">
+    <aside id="workspace-sidebar" class="sidebar" aria-label="项目与执行记录">
+      <div class="sidebar-heading"><span>工作空间</span><span class="tiny-label">PYTHON</span></div>
+      <button id="new-file" class="new-file"><span>＋</span> 新建 Python 文件</button>
+      <div class="side-section-label">演示程序 <span id="example-count">—</span></div>
+      <div id="examples-list" class="examples-list"><p class="muted small">正在载入示例…</p></div>
+      <div class="side-section-label history-heading">执行记录 <button id="refresh-history" class="icon-button small-icon" title="刷新记录" aria-label="刷新执行记录">↻</button></div>
+      <div id="history-list" class="history-list"><p class="muted small">正在读取记录…</p></div>
+      <div class="sidebar-note"><span class="note-glyph">⌘</span><div><strong>看见逻辑，理解代码</strong><p>编辑 · 调试 · 回放 · 分析</p></div></div>
+    </aside>
+    <main id="main-workspace" class="main-content" tabindex="-1">
+      <section class="workspace-heading"><div><div class="eyebrow">工作空间 / Python</div><h1 id="project-title">运行观察台</h1><p id="project-description">从一行代码，到完整的运行轨迹。</p></div><div class="heading-actions"><button class="subtle-button" id="import-code">↥ 导入 .py</button><button class="subtle-button" id="export-code">↧ 导出代码</button></div></section>
+      <nav class="view-tabs" role="tablist" aria-label="工作区视图"><button id="tab-debug" class="view-tab active" role="tab" data-view="debug" aria-controls="view-debug" aria-selected="true" tabindex="0">执行调试 <span>01</span></button><button id="tab-ast" class="view-tab" role="tab" data-view="ast" aria-controls="view-ast" aria-selected="false" tabindex="-1">语法结构 <span>02</span></button><button id="tab-profile" class="view-tab" role="tab" data-view="profile" aria-controls="view-profile" aria-selected="false" tabindex="-1">性能实验 <span>03</span></button><div class="view-tab-end"><span id="status-dot" class="status-dot" aria-hidden="true"></span><span id="status-label" role="status" aria-live="polite">准备就绪</span></div></nav>
+      <section id="view-debug" class="view-panel debug-view" role="tabpanel" aria-labelledby="tab-debug">
+        <div class="debug-toolbar"><div class="control-group"><button id="start-button" class="primary-button" title="启动调试：Ctrl + Enter">▶ 启动调试</button><button id="step-button" class="tool-button" title="单步执行：F10" disabled>↳ 单步</button><button id="continue-button" class="tool-button" title="继续执行：F8" disabled>▷ 继续</button><button id="pause-button" class="tool-button" disabled>Ⅱ 暂停</button><button id="stop-button" class="tool-button stop-button" title="停止：Shift + F5" disabled>■ 停止</button></div><span id="execution-hint" class="toolbar-hint">启动后暂停在第一条可执行语句</span></div>
+        <div id="session-alert" class="session-alert" role="alert" hidden></div>
+        <div class="debug-workspace">
+          <section class="panel editor-panel" aria-label="Python 代码编辑器">
+            <div class="panel-heading"><span class="panel-title"><span class="file-icon">Py</span><span id="file-name">main.py</span><span id="modified-dot" class="modified-dot" hidden title="代码已修改"></span></span><span class="panel-meta">Python 3</span></div>
+            <div class="editor-container"><textarea id="code-editor" aria-label="Python 源代码" spellcheck="false"></textarea></div>
+            <div class="editor-footer"><button id="breakpoint-toggle" class="breakpoint-summary"><i></i><span id="breakpoint-count">0 个断点</span></button><span id="cursor-position">行 1，列 1</span><span class="editor-encoding">UTF-8</span></div>
+            <div id="breakpoint-popover" class="breakpoint-popover" hidden><div class="popover-heading"><strong>行断点</strong><button id="close-breakpoints" class="icon-button" aria-label="关闭断点面板">×</button></div><p class="small muted">点击行号左侧，或输入行号设置断点。</p><div class="breakpoint-input-row"><input id="breakpoint-line" type="number" min="1" inputmode="numeric" autocomplete="off" placeholder="例如 4" aria-label="断点行号"><button id="add-breakpoint" class="subtle-button">切换断点</button></div><div id="breakpoint-list"></div><button id="clear-breakpoints" class="text-button">清除全部断点</button></div>
+          </section>
+          <section class="panel inspector-panel" aria-label="运行状态检查器">
+            <div class="panel-heading"><span class="panel-title"><span class="teal-square"></span>运行状态</span><span id="event-label" class="panel-meta">等待执行</span></div>
+            <div class="inspector-tabs" role="tablist" aria-label="运行状态视图"><button id="tab-variables" class="inspector-tab active" role="tab" data-inspector="variables" aria-controls="inspector-variables" aria-selected="true" tabindex="0">变量与对象</button><button id="tab-stack" class="inspector-tab" role="tab" data-inspector="stack" aria-controls="inspector-stack" aria-selected="false" tabindex="-1">调用栈 <span id="stack-count">0</span></button></div>
+            <div id="inspector-variables" class="inspector-content" role="tabpanel" aria-labelledby="tab-variables"><div id="event-detail" class="event-detail" hidden></div><div class="scope-row"><label for="scope-select">观察作用域</label><select id="scope-select"><option value="current">当前栈帧</option><option value="global">全局变量</option></select></div><div id="variables-list" class="variables-list"><div class="empty-state compact"><span class="empty-symbol">{ }</span><strong>变量会在这里浮现</strong><p>启动调试，观察每一步的状态变化</p></div></div><div class="graph-heading"><span>对象引用图</span><span id="object-count">0 个对象</span></div><div id="object-graph" class="object-graph"><div class="empty-graph">列表、字典和对象之间的真实引用关系</div></div><div id="object-detail" class="object-detail" hidden></div></div>
+            <div id="inspector-stack" class="inspector-content" role="tabpanel" aria-labelledby="tab-stack" hidden><div class="stack-explainer">由外到内排列 · 点击栈帧查看局部变量</div><div id="stack-list"></div></div>
+          </section>
+        </div>
+        <section class="panel replay-panel" aria-label="执行历史与程序输出"><div class="replay-top"><div class="replay-title"><span class="panel-title">执行时间线</span><span id="snapshot-label" class="snapshot-label">尚无快照</span><span id="replay-badge" class="replay-badge" hidden>历史快照</span></div><div class="replay-actions"><button id="previous-event" class="icon-button" disabled title="上一快照" aria-label="上一快照">‹</button><button id="play-replay" class="icon-button" disabled title="播放快照" aria-label="播放快照">▷</button><button id="next-event" class="icon-button" disabled title="下一快照" aria-label="下一快照">›</button><button id="go-live" class="text-button" disabled>最新状态</button><button id="export-record" class="text-button" disabled>导出记录 ↗</button></div></div><div class="timeline-row"><span id="timeline-start">0</span><input id="timeline" type="range" min="0" max="0" value="0" aria-label="选择执行快照" disabled><span id="timeline-end">0</span><span id="elapsed-label" class="timeline-time">0 ms</span></div><div class="output-heading"><span>程序输出</span><span id="output-context">快照回放不会撤销文件写入等副作用</span></div><pre id="console-output" class="console-output" aria-label="程序标准输出">等待程序输出…</pre></section>
+      </section>
+      <section id="view-ast" class="view-panel analysis-view" role="tabpanel" aria-labelledby="tab-ast" hidden><div class="analysis-heading"><div><h2>把代码，拆解为结构</h2><p>直接解析编辑器中的代码，查看真实的抽象语法树。</p></div><button id="analyze-button" class="primary-button">↻ 解析当前代码</button></div><div id="ast-metrics" class="metric-grid"></div><div id="ast-warnings" hidden></div><section class="panel ast-panel"><div class="panel-heading"><span class="panel-title">抽象语法树 <span class="tiny-label">AST</span></span><span id="ast-summary" class="panel-meta">尚未解析</span></div><div id="ast-tree" class="ast-tree"><div class="empty-state"><span class="empty-symbol">⌘</span><strong>从源码看见程序结构</strong><p>点击“解析当前代码”，展开函数、循环与表达式。</p></div></div></section></section>
+      <section id="view-profile" class="view-panel analysis-view" role="tabpanel" aria-labelledby="tab-profile" hidden><div class="analysis-heading"><div><h2>用真实数据，解释性能</h2><p>独立运行代码并采集函数调用耗时，保存基准后比较修改结果。</p></div><button id="profile-button" class="primary-button">▶ 运行性能分析</button></div><div class="profile-notice"><span>!</span> 性能分析会重新执行当前代码。含文件写入、网络请求等操作时，请先确认这些操作适合再次执行。</div><div class="profile-summary"><div class="profile-metric"><span>本次运行耗时</span><strong id="profile-elapsed">—<small>ms</small></strong><p id="profile-run-note">等待第一次分析</p></div><div class="profile-metric"><span>基准运行耗时</span><strong id="baseline-elapsed">—<small>ms</small></strong><button id="save-baseline" class="text-button" disabled>将本次结果设为基准 →</button></div><div class="profile-metric"><span>与基准对比</span><strong id="profile-difference">—</strong><p id="comparison-note">保存基准后，修改代码再次分析</p></div></div><section class="panel profile-panel"><div class="panel-heading"><span class="panel-title">函数性能报告</span><span class="panel-meta">cProfile · 按累计耗时排序</span></div><p class="table-note">自身耗时不含子调用；累计耗时包含子调用。单次测量存在波动，不能直接证明算法复杂度。</p><div class="table-scroll"><table class="profile-table"><thead><tr><th>函数 / 位置</th><th>调用次数</th><th>自身耗时</th><th>累计耗时</th><th>耗时分布</th></tr></thead><tbody id="profile-rows"><tr><td colspan="5" class="table-empty">运行分析后，真实的函数调用数据将显示在这里</td></tr></tbody></table></div></section><section class="panel profile-output-panel"><div class="panel-heading"><span class="panel-title">独立运行输出</span></div><pre id="profile-output" class="console-output">尚无输出</pre></section></section>
+      <footer class="workspace-footer"><span><i></i> Python 运行可视化实验平台</span><span>仅执行可信的单线程同步代码 <span class="footer-key">Ctrl ↵</span> 启动</span></footer>
+    </main>
+  </div>
+  <input id="code-file-input" type="file" accept=".py,text/x-python,text/plain" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="help-dialog"><div class="dialog-heading"><div><span class="eyebrow">QUICK GUIDE</span><h2>你的程序，逐步看清</h2></div><button id="close-help" class="icon-button" aria-label="关闭使用说明">×</button></div><ol class="help-steps"><li><strong>选一个示例，或写自己的代码</strong><p>在行号左侧设置断点，也可以导入本地 .py 文件。</p></li><li><strong>启动调试，再单步观察</strong><p>“即将执行”标记对应执行前的行；异常和返回标记对应事件发生位置。继续执行会在下一断点暂停。</p></li><li><strong>拖动时间轴，回看每一步</strong><p>回放展示保存的状态，不会重新执行，也不会回滚文件、网络等外部副作用。</p></li><li><strong>查看结构与性能</strong><p>语法结构无需运行代码；性能分析会独立重新执行代码，结果可保存为对比基准。</p></li></ol><div class="shortcut-list"><span>启动调试 <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span><span>单步 <kbd>F10</kbd></span><span>继续 <kbd>F8</kbd></span><span>停止 <kbd>Shift</kbd> + <kbd>F5</kbd></span></div><p class="help-limit">仅支持可信的单进程、单线程同步代码。运行有资源限制，但不是安全沙箱。多线程、异步任务和外部输入不在本项目的调试范围内。</p></dialog>
+</body>
+</html>

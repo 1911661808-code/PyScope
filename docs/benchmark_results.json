@@ -1,0 +1,37 @@
+{
+  "recorded_at_utc": "2026-10-12T03:30:43.853123+00:00",
+  "python": "3.12.14",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "repeats": 5,
+  "measurement": "包含 cProfile 统计开销的代码执行时间，不包含进程启动时间；机器环境会影响耗时。",
+  "cases": [
+    {
+      "id": "profile_slow",
+      "title": "性能对比：重复递归",
+      "output": "结果: 17711",
+      "function_calls": 57313,
+      "median_ms": 6.7365,
+      "runs_ms": [
+        6.7319,
+        7.4983,
+        6.6294,
+        7.3666,
+        6.7365
+      ]
+    },
+    {
+      "id": "profile_fast",
+      "title": "性能对比：记忆化递归",
+      "output": "结果: 17711",
+      "function_calls": 43,
+      "median_ms": 0.0719,
+      "runs_ms": [
+        0.0719,
+        0.0693,
+        0.0719,
+        0.0749,
+        0.0693
+      ]
+    }
+  ]
+}

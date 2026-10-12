@@ -1,0 +1,40 @@
+test_ast_facts_and_syntax_error (test_api.ApiTests.test_ast_facts_and_syntax_error) ... ok
+test_bad_inputs_and_cross_origin (test_api.ApiTests.test_bad_inputs_and_cross_origin) ... ok
+test_command_type_and_broken_exception_string (test_api.ApiTests.test_command_type_and_broken_exception_string) ... ok
+test_health_and_examples (test_api.ApiTests.test_health_and_examples) ... ok
+test_history_without_browser_polling_and_deletion (test_api.ApiTests.test_history_without_browser_polling_and_deletion) ... ok
+test_profile_measures_real_functions (test_api.ApiTests.test_profile_measures_real_functions) ... ok
+test_profile_timeout (test_api.ApiTests.test_profile_timeout) ... ok
+test_real_debugging_history_and_export (test_api.ApiTests.test_real_debugging_history_and_export) ... ok
+test_unicode_output_and_exception (test_api.ApiTests.test_unicode_output_and_exception) ... ok
+test_unknown_session (test_api.ApiTests.test_unknown_session) ... ok
+test_alias_cycles_and_stable_object_ids (test_engine.EngineTests.test_alias_cycles_and_stable_object_ids) ... ok
+test_breakpoint_in_loop_and_resume (test_engine.EngineTests.test_breakpoint_in_loop_and_resume) ... ok
+test_breakpoints_can_be_replaced (test_engine.EngineTests.test_breakpoints_can_be_replaced) ... ok
+test_caught_and_unhandled_exception_events (test_engine.EngineTests.test_caught_and_unhandled_exception_events) ... ok
+test_close_terminates_paused_process_and_is_idempotent (test_engine.EngineTests.test_close_terminates_paused_process_and_is_idempotent) ... ok
+test_containers_and_custom_objects_without_calling_repr (test_engine.EngineTests.test_containers_and_custom_objects_without_calling_repr) ... ok
+test_event_limit (test_engine.EngineTests.test_event_limit) ... ok
+test_exception_with_broken_string_conversion_is_reported (test_engine.EngineTests.test_exception_with_broken_string_conversion_is_reported) ... ok
+test_incremental_events_and_copies (test_engine.EngineTests.test_incremental_events_and_copies) ... ok
+test_initial_pause_is_before_first_executable_line (test_engine.EngineTests.test_initial_pause_is_before_first_executable_line) ... ok
+test_output_limit (test_engine.EngineTests.test_output_limit) ... ok
+test_pause_running_and_stop_native_wait (test_engine.EngineTests.test_pause_running_and_stop_native_wait) ... ok
+test_pause_time_is_excluded_from_execution_budget (test_engine.EngineTests.test_pause_time_is_excluded_from_execution_budget) ... ok
+test_recursion_exposes_call_stack_and_return_values (test_engine.EngineTests.test_recursion_exposes_call_stack_and_return_values) ... ok
+test_snapshot_depth_and_item_limits (test_engine.EngineTests.test_snapshot_depth_and_item_limits) ... ok
+test_snapshot_object_limits_have_no_dangling_references (test_engine.EngineTests.test_snapshot_object_limits_have_no_dangling_references) ... ok
+test_stack_limit (test_engine.EngineTests.test_stack_limit) ... ok
+test_step_and_completion_capture_real_values (test_engine.EngineTests.test_step_and_completion_capture_real_values) ... ok
+test_syntax_error_is_reported (test_engine.EngineTests.test_syntax_error_is_reported) ... ok
+test_unexpected_worker_exit_is_error (test_engine.EngineTests.test_unexpected_worker_exit_is_error) ... ok
+test_unicode_and_cumulative_output_history (test_engine.EngineTests.test_unicode_and_cumulative_output_history) ... ok
+test_validation_and_parallel_session_isolation (test_engine.EngineTests.test_validation_and_parallel_session_isolation) ... ok
+test_watchdog_stops_blocking_native_call (test_engine.EngineTests.test_watchdog_stops_blocking_native_call) ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 14.949s
+
+OK
+
+2026-10-12 界面优化后再次回归：python -X utf8 -m unittest discover -s tests -v；33 项全部通过，耗时 15.006 秒。原始测试名称见上方同一测试集。本轮仅修改界面模板、样式与交互脚本。
