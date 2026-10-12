@@ -1,7 +1,7 @@
 """调试会话生命周期与进程通信。
 
-执行时间不包含用户查看暂停快照的时间。看门狗可以终止卡在原生调用
-中的进程；这些资源限制不等于安全沙箱，仅运行可信的本地代码。
+执行时间不包含用户查看暂停快照的时间。LocalBackend 仅用于可信代码；
+DockerBackend 在独立容器中运行。宿主始终把工作进程输出视为不可信。
 """
 
 from __future__ import annotations
@@ -10,13 +10,13 @@ import copy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
-import os
-from pathlib import Path
 import subprocess
-import sys
 import threading
 import time
 import uuid
+
+from execution_backend import (LocalBackend, BackendError, ProtocolError, OutputLimitError,
+                               bounded_lines, parse_json, validate_trace_message, MAX_STDERR_CHARS)
 
 
 TERMINAL_STATUSES = frozenset({"completed", "error", "stopped", "limited"})
@@ -49,8 +49,10 @@ class SessionManager:
     def __init__(
         self,
         *,
+        backend=None,
         max_events: int = 1500,
         max_output: int = 16000,
+        max_trace_chars: int = 32_000_000,
         max_depth: int = 5,
         max_items: int = 30,
         max_objects: int = 120,
@@ -72,9 +74,13 @@ class SessionManager:
         }
         if any(type(value) is not int or value < 1 for value in integer_limits.values()):
             raise ValueError("资源限制必须为正整数")
+        if type(max_trace_chars) is not int or max_trace_chars < 1:
+            raise ValueError("通信总量限制必须为正整数")
         if timeout_seconds <= 0 or max_lifetime_seconds <= 0 or max_sessions < 1 or max_saved_sessions < 1:
             raise ValueError("时间和会话数量限制必须为正数")
         self._limits = integer_limits
+        self.max_trace_chars = max_trace_chars
+        self.backend = backend if backend is not None else LocalBackend()
         self.timeout_seconds = float(timeout_seconds)
         self.max_lifetime_seconds = float(max_lifetime_seconds)
         self.max_sessions = int(max_sessions)
@@ -111,27 +117,7 @@ class SessionManager:
             terminal = [key for key, item in self._sessions.items() if item.status in TERMINAL_STATUSES]
             while len(terminal) >= self.max_saved_sessions:
                 self._sessions.pop(terminal.pop(0))
-            environment = os.environ.copy()
-            environment["PYTHONIOENCODING"] = "utf-8"
-            environment["PYTHONUNBUFFERED"] = "1"
-            flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-            worker_command = (
-                [sys.executable, "--trace-worker"]
-                if getattr(sys, "frozen", False)
-                else [sys.executable, "-u", str(Path(__file__).with_name("trace_worker.py"))]
-            )
-            process = subprocess.Popen(
-                worker_command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-                env=environment,
-                creationflags=flags,
-            )
+            process = self.backend.spawn_trace()
             session_id = uuid.uuid4().hex
             session = _Session(id=session_id, code=code, breakpoints=points, process=process)
             self._sessions[session_id] = session
@@ -174,6 +160,7 @@ class SessionManager:
             raise ValueError("命令必须为 step、run、pause 或 stop")
         points = None if breakpoints is None else self._validate_breakpoints(breakpoints)
         session = self._find(session_id)
+        communication_failed = False
         with session.lock:
             if session.status in TERMINAL_STATUSES:
                 if command == "stop":
@@ -192,17 +179,32 @@ class SessionManager:
                 self._write(session, payload)
             except (OSError, ValueError) as exc:
                 self._transition(session, "error", f"调试进程通信已断开：{exc}")
-        if command == "stop":
-            self._terminate(session, "stopped")
+                communication_failed = True
+        if command == "stop" or communication_failed:
+            self._terminate(session, "stopped" if command == "stop" else "error")
         return self.get(session_id)
 
     @staticmethod
     def _write(session: _Session, payload: dict) -> None:
-        with session.write_lock:
-            if session.process.stdin is None or session.process.stdin.closed:
-                raise ValueError("调试输入管道已关闭")
-            session.process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
-            session.process.stdin.flush()
+        # 不可信代码可能停止读取 stdin；不要让请求线程无限阻塞在管道写入。
+        errors = []
+        def write():
+            try:
+                with session.write_lock:
+                    if session.process.stdin is None or session.process.stdin.closed:
+                        raise ValueError("调试输入管道已关闭")
+                    session.process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
+                    session.process.stdin.flush()
+            except (OSError, ValueError) as exc:
+                errors.append(exc)
+        thread = threading.Thread(target=write, name="pyscope-input", daemon=True)
+        thread.start()
+        thread.join(timeout=2)
+        if thread.is_alive():
+            session.process.kill()
+            raise ValueError("调试输入管道超时，已终止进程")
+        if errors:
+            raise errors[0]
 
     @staticmethod
     def _transition(session: _Session, status: str, error: str | None = None) -> None:
@@ -219,13 +221,12 @@ class SessionManager:
 
     def _read_events(self, session: _Session) -> None:
         try:
-            for line in session.process.stdout:
-                try:
-                    message = json.loads(line)
-                except (ValueError, TypeError):
-                    with session.lock:
-                        session.diagnostic = (session.diagnostic + line)[-4000:]
-                    continue
+            count = 0
+            for line in bounded_lines(session.process.stdout, total_limit=self.max_trace_chars):
+                count += 1
+                if count > self._limits["max_events"] * 4 + 100:
+                    raise OutputLimitError("执行进程消息数量超过限制。")
+                message = validate_trace_message(parse_json(line), self._limits)
                 close_input = message.get("kind") == "status" and message.get("status") in TERMINAL_STATUSES
                 with session.lock:
                     if session.status in TERMINAL_STATUSES:
@@ -238,16 +239,30 @@ class SessionManager:
                             # 索引由接收顺序重新确认，客户端不会收到重复的序号。
                             event["index"] = len(session.events)
                             session.events.append(event)
+                        else:
+                            raise OutputLimitError("执行事件数量超过限制。")
                     elif message.get("kind") == "status" and message.get("status") in ALL_STATUSES:
                         self._transition(session, message["status"], message.get("error"))
                 if close_input:
                     # 事件快照保持不可变；终态只结束控制管道，不回写历史输出。
                     self._close_input(session)
-        except (OSError, ValueError) as exc:
-            with session.lock:
-                self._transition(session, "error", f"读取调试事件失败：{exc}")
+                    # 不能信任终态消息意味着进程真的结束；迟到/伪造的终态也立即清理。
+                    self._terminate(session, message["status"])
+                    break
+        except OutputLimitError as exc:
+            self._terminate(session, "limited", str(exc))
+        except (OSError, ValueError, RecursionError) as exc:
+            self._terminate(session, "error", f"读取调试事件失败：{exc}")
         finally:
-            returncode = session.process.wait()
+            try:
+                returncode = session.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                session.process.kill()
+                returncode = session.process.wait(timeout=2)
+            except BackendError as exc:
+                returncode = -1
+                with session.lock:
+                    session.error = str(exc)
             with session.lock:
                 if session.status not in TERMINAL_STATUSES:
                     detail = session.diagnostic.strip()
@@ -262,19 +277,25 @@ class SessionManager:
 
     @staticmethod
     def _close_input(session: _Session) -> None:
-        with session.write_lock:
+        # 若写线程已阻塞，先让终止流程关闭进程，避免 close 等待内部 IO 锁。
+        if not session.write_lock.acquire(timeout=.1):
+            return
+        try:
             try:
                 if session.process.stdin is not None:
                     session.process.stdin.close()
             except OSError:
                 pass
+        finally:
+            session.write_lock.release()
 
-    @staticmethod
-    def _read_stderr(session: _Session) -> None:
+    def _read_stderr(self, session: _Session) -> None:
         try:
-            for line in session.process.stderr:
+            for line in bounded_lines(session.process.stderr, line_limit=8000, total_limit=MAX_STDERR_CHARS):
                 with session.lock:
                     session.diagnostic = (session.diagnostic + line)[-4000:]
+        except OutputLimitError as exc:
+            self._terminate(session, "limited", str(exc))
         except (OSError, ValueError):
             pass
         finally:
@@ -283,26 +304,21 @@ class SessionManager:
     def _terminate(self, session: _Session, status: str, error: str | None = None) -> None:
         with session.lock:
             self._transition(session, status, error)
-        if session.process.poll() is None:
-            try:
-                self._write(session, {"command": "stop"})
-            except (OSError, ValueError):
-                pass
-            try:
-                session.process.wait(timeout=0.25)
-            except subprocess.TimeoutExpired:
+        try:
+            if session.process.poll() is None:
                 try:
-                    session.process.terminate()
-                except OSError:
-                    pass
-                try:
-                    session.process.wait(timeout=1.0)
+                    session.process.wait(timeout=0.25)
                 except subprocess.TimeoutExpired:
-                    try:
-                        session.process.kill()
-                    except OSError:
-                        pass
-                    session.process.wait(timeout=2.0)
+                    session.process.terminate()
+            # wrapper.wait() 在正常退出、CLI先退出时仍执行 docker rm --force。
+            try:
+                session.process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                session.process.kill()
+                session.process.wait(timeout=2.0)
+        except (OSError, BackendError, subprocess.TimeoutExpired) as exc:
+            with session.lock:
+                session.error = f"进程清理失败：{exc}"
 
     def _watchdog(self) -> None:
         while not self._closed.wait(0.1):
@@ -338,6 +354,7 @@ class SessionManager:
                     thread.join(timeout=2.0)
         if self._watcher is not threading.current_thread():
             self._watcher.join(timeout=2.0)
+        self.backend.close()
 
     def __enter__(self):
         return self

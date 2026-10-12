@@ -9,6 +9,10 @@ def validate_code(code):
         raise ValueError('请先输入 Python 代码。')
     if len(code) > MAX_CODE:
         raise ValueError('代码长度不能超过 30000 个字符。')
+    try:
+        code.encode('utf-8')
+    except UnicodeEncodeError:
+        raise ValueError('代码包含无法编码的 Unicode 字符。') from None
     return code
 
 

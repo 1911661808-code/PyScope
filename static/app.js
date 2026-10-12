@@ -12,6 +12,10 @@
   const TERMINAL = new Set(["completed", "error", "stopped", "limited"]);
   const STATUS = {starting: "正在启动", running: "正在执行", paused: "断点 / 单步暂停", completed: "执行完成", error: "执行异常", stopped: "已停止", limited: "已达运行限制"};
   const EVENT = {line: "即将执行", call: "进入函数", return: "函数返回", exception: "异常事件"};
+  const serverMode = document.body.dataset.serverMode === "true";
+  let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  let authRedirecting = false;
+  let loggingOut = false;
   const state = {
     examples: [], exampleId: null, filename: "main.py", title: "运行观察台", breakpoints: new Set(),
     session: null, events: [], selected: -1, followLive: true, history: false, frame: -1, scope: "current",
@@ -41,12 +45,25 @@
   });
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+    if (authRedirecting) throw new Error("登录状态已失效，正在返回登录页。");
+    const method = String(options.method || "GET").toUpperCase();
+    const headers = new Headers(options.headers || {});
+    if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    headers.set("Accept", "application/json");
+    if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) headers.set("X-CSRF-Token", csrfToken);
+    const response = await fetch(path, {...options, method, headers, credentials: "same-origin"});
+    if (authRedirecting) throw new Error("登录状态已失效，已忽略先前请求的响应。");
+    if (response.status === 401) {
+      redirectToLogin();
+      throw new Error("登录状态已失效，请重新登录。");
+    }
     let data;
     try { data = await response.json(); } catch (_) { throw new Error(`服务器响应无法读取（HTTP ${response.status}）`); }
+    if (authRedirecting) throw new Error("登录状态已失效，已忽略先前请求的响应。");
     if (!response.ok) {
-      const error = new Error(data.error || `请求失败（HTTP ${response.status}）`);
+      const error = new Error(data.message || data.error || `请求失败（HTTP ${response.status}）`);
       error.details = data;
+      error.status = response.status;
       throw error;
     }
     return data;
@@ -58,6 +75,66 @@
   const ms = (value) => number(value).toLocaleString("zh-CN", {maximumFractionDigits: 2});
   let objectReturnFocus = null;
   let graphResizeFrame = null;
+
+  function redirectToLogin() {
+    if (authRedirecting) return;
+    authRedirecting = true;
+    stopPolling();
+    stopReplay();
+    clearTimeout(state.toastTimer);
+    state.session = null;
+    state.events = [];
+    state.selected = -1;
+    state.profile = state.baseline = null;
+    state.profileCode = "";
+    state.breakpoints.clear();
+    csrfToken = "";
+    editor.setValue("");
+    editor.clearHistory();
+    renderSnapshot();
+    $("history-list").replaceChildren();
+    $("ast-tree").replaceChildren();
+    $("ast-metrics").replaceChildren();
+    $("ast-warnings").replaceChildren();
+    $("profile-rows").replaceChildren();
+    $("profile-output").textContent = "";
+    $("session-alert").textContent = "";
+    $("toast").hidden = true;
+    // A fixed destination avoids copying source or credentials into a URL.
+    window.location.replace("/login");
+  }
+
+  async function logout() {
+    if (!serverMode || loggingOut || authRedirecting) return;
+    if (state.busy) { toast("当前操作尚未完成，请稍后退出。"); return; }
+    loggingOut = true;
+    state.busy = true;
+    const button = $("logout-button");
+    if (button) button.textContent = "退出中…";
+    if (active()) toast("正在停止当前调试并退出登录…");
+    stopPolling();
+    stopReplay();
+    updateControls();
+    try {
+      // Reuse the existing stop path before revoking the login session.
+      // A failed stop or logout leaves the user signed in with an error shown.
+      await leaveSession();
+      const result = await post("/auth/logout", {});
+      if (result?.ok !== true) throw new Error(result?.message || "退出未完成，请重试。");
+      redirectToLogin();
+    } catch (error) {
+      if (!authRedirecting) toast(`退出失败：${error.message}`, true);
+    } finally {
+      if (!authRedirecting) {
+        loggingOut = false;
+        state.busy = false;
+        if (button) button.textContent = "退出";
+        updateControls();
+        renderSnapshot();
+        schedulePoll();
+      }
+    }
+  }
 
   // 抽屉是否启用由实际布局决定，避免 JS 与 CSS 使用两套响应式断点。
   function compactWorkspace() {
@@ -136,6 +213,7 @@
     setInspector("variables");
   }
   function toast(message, error = false) {
+    if (authRedirecting) return;
     clearTimeout(state.toastTimer);
     $("toast").textContent = message;
     $("toast").classList.toggle("error", error);
@@ -143,6 +221,7 @@
     state.toastTimer = setTimeout(() => { $("toast").hidden = true; }, error ? 7000 : 3500);
   }
   function updateControls() {
+    if ($("logout-button")) $("logout-button").disabled = state.busy || loggingOut || authRedirecting;
     const status = state.session?.status;
     const paused = !state.history && status === "paused";
     const running = !state.history && (status === "running" || status === "starting");
@@ -174,7 +253,7 @@
   function stopPolling() { clearTimeout(state.pollTimer); state.pollTimer = null; }
   function schedulePoll() {
     stopPolling();
-    if (!active()) return;
+    if (!active() || authRedirecting || loggingOut) return;
     const id = state.session.id;
     state.pollTimer = setTimeout(async () => {
       if (state.session?.id !== id || state.history) return;
@@ -192,6 +271,7 @@
     }, state.pollErrors ? 1800 : 320);
   }
   function applySession(data) {
+    if (authRedirecting || loggingOut) return;
     const previousStatus = state.session?.status;
     state.session = {...state.session, ...data};
     const oldLength = state.events.length;
@@ -262,8 +342,9 @@
     clearHighlight();
   }
   async function loadCode(code, title, description, filename = "main.py", exampleId = null) {
-    if (state.busy) return false;
+    if (state.busy || authRedirecting) return false;
     try { await leaveSession(); } catch (_) { schedulePoll(); return false; }
+    if (authRedirecting) return false;
     state.title = title; state.filename = filename; state.exampleId = exampleId; state.breakpoints.clear();
     editor.setValue(code); editor.clearHistory(); editor.setCursor(0, 0);
     state.dirty = false;
@@ -293,8 +374,9 @@
   async function loadHistory() {
     try {
       const data = await api("/api/history");
+      if (authRedirecting) return;
       $("history-list").replaceChildren();
-      if (!data.history?.length) { $("history-list").append(make("p", "small muted", "完成一次运行后，记录会自动保存在本地。")); return; }
+      if (!data.history?.length) { $("history-list").append(make("p", "small muted", serverMode ? "完成一次运行后，记录会自动保存在当前账户。" : "完成一次运行后，记录会自动保存在本地。")); return; }
       for (const item of data.history) {
         const row = make("div", "history-row");
         const button = make("button", "history-item");
@@ -304,28 +386,30 @@
         button.append(make("span", "history-name", item.title || "Python 运行记录"), make("span", "history-meta", `${dateText} · ${item.event_count || 0} 帧 · ${STATUS[item.status] || item.status}`));
         button.addEventListener("click", () => openHistory(item.id));
         const remove = make("button", "icon-button history-delete", "×");
-        remove.title = "删除这条本地记录"; remove.setAttribute("aria-label", `删除记录：${item.title || item.id}`);
+        remove.title = serverMode ? "删除这条账户记录" : "删除这条本地记录"; remove.setAttribute("aria-label", `删除记录：${item.title || item.id}`);
         remove.addEventListener("click", async () => {
           remove.disabled = true;
-          try { await api(`/api/history/${encodeURIComponent(item.id)}`, {method: "DELETE"}); row.remove(); if (!$("history-list").children.length) loadHistory(); toast("已删除本地记录"); }
+          try { await api(`/api/history/${encodeURIComponent(item.id)}`, {method: "DELETE"}); if (authRedirecting) return; row.remove(); if (!$("history-list").children.length) loadHistory(); toast(serverMode ? "已删除账户记录" : "已删除本地记录"); }
           catch (error) { toast(error.message, true); remove.disabled = false; }
         });
         row.append(button, remove); $("history-list").append(row);
       }
-    } catch (error) { $("history-list").replaceChildren(make("p", "small muted", `记录暂不可用：${error.message}`)); }
+    } catch (error) { if (!authRedirecting) $("history-list").replaceChildren(make("p", "small muted", `记录暂不可用：${error.message}`)); }
   }
   async function openHistory(id) {
-    if (state.busy) return;
+    if (state.busy || authRedirecting) return;
     try {
       const data = await api(`/api/history/${encodeURIComponent(id)}`);
+      if (authRedirecting) return;
       await leaveSession();
+      if (authRedirecting) return;
       state.history = true; state.followLive = false; state.exampleId = null; state.breakpoints = new Set(data.breakpoints || []);
       state.filename = "history.py";
       editor.setValue(data.code || ""); editor.clearHistory();
       state.dirty = false; $("modified-dot").hidden = true;
       $("file-name").textContent = state.filename;
       $("project-title").textContent = "执行记录回放";
-      $("project-description").textContent = "读取本地保存的真实执行快照，可重新启动调试。";
+      $("project-description").textContent = serverMode ? "读取当前账户的执行快照，可重新启动调试。" : "读取本地保存的真实执行快照，可重新启动调试。";
       state.selected = (data.events || []).length - 1;
       applySession(data);
       const origin = data.status === "error" ? findOriginExceptionIndex(state.events, data.error) : -1;
@@ -638,9 +722,11 @@
     });
   }
   async function analyzeCode() {
+    if (authRedirecting) return;
     const button = $("analyze-button"); button.disabled = true; button.textContent = "正在解析…";
     try {
       const data = await post("/api/analyze", {code:editor.getValue()});
+      if (authRedirecting) return;
       $("ast-tree").replaceChildren(); $("ast-metrics").replaceChildren();
       for (const [key,label] of [["lines","代码行数"],["functions","函数定义"],["classes","类定义"],["branches","分支节点"],["loops","循环节点"]]) {
         const card = make("div","metric-card"); card.append(make("span","",label),make("strong","",data.counts?.[key] ?? 0)); $("ast-metrics").append(card);
@@ -665,16 +751,18 @@
       for (const warning of data.warnings || []) $("ast-warnings").append(make("div","warning-row",typeof warning === "string" ? warning : JSON.stringify(warning)));
       $("ast-warnings").hidden = !data.warnings?.length;
     } catch (error) {
+      if (authRedirecting) return;
       $("ast-tree").replaceChildren(make("div","ast-error",`解析失败${error.details?.line ? ` · 第 ${error.details.line} 行` : ""}\n${error.message}`));
       $("ast-summary").textContent = "代码存在语法错误或暂不可解析"; $("ast-metrics").replaceChildren(); $("ast-warnings").hidden = true;
-    } finally { button.disabled = false; button.textContent = "↻ 解析当前代码"; }
+    } finally { if (!authRedirecting) { button.disabled = false; button.textContent = "↻ 解析当前代码"; } }
   }
   async function runProfile() {
-    if (state.busy || active()) return;
+    if (state.busy || active() || authRedirecting) return;
     state.busy = true; updateControls(); $("profile-button").textContent = "正在采集性能…";
     const code = editor.getValue();
     try {
       const result = await post("/api/profile",{code});
+      if (authRedirecting) return;
       state.profile = result; state.profileCode = code;
       renderProfile();
       if (result.exception) toast("性能运行发生异常，已保留运行输出与已采集的数据",true);
@@ -711,20 +799,24 @@
     const url=URL.createObjectURL(blob),link=make("a");link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   async function exportRecord() {
-    if (!state.events.length || !state.session) return;
+    if (!state.events.length || !state.session || authRedirecting) return;
     try {
       let blob;
       if (state.history) blob=new Blob([JSON.stringify({format:"pyscope-trace-v1",...state.session,events:state.events,total_events:state.events.length},null,2)],{type:"application/json;charset=utf-8"});
       else {
-        const response=await fetch(`/api/sessions/${encodeURIComponent(state.session.id)}/export`);
+        const response=await fetch(`/api/sessions/${encodeURIComponent(state.session.id)}/export`, {credentials:"same-origin"});
+        if (authRedirecting) return;
+        if (response.status === 401) { redirectToLogin(); return; }
         if (!response.ok) throw new Error(`导出失败（HTTP ${response.status}）`);
         blob=await response.blob();
       }
+      if (authRedirecting) return;
       download(blob,`pyscope-trace-${String(state.session.id).slice(0,8)}.json`);toast("执行记录已导出");
     } catch(error) { toast(error.message,true); }
   }
 
   $("start-button").addEventListener("click",startSession);
+  $("logout-button")?.addEventListener("click",logout);
   $("step-button").addEventListener("click",()=>executeCommand("step"));
   $("continue-button").addEventListener("click",()=>executeCommand("run"));
   $("pause-button").addEventListener("click",()=>executeCommand("pause"));
@@ -796,12 +888,33 @@
   window.addEventListener("beforeunload",(event)=>{if(active()){event.preventDefault();event.returnValue="";}});
 
   async function initialize() {
+    if (serverMode) {
+      try {
+        const account = await api("/api/auth/me");
+        if (authRedirecting) return;
+        if (account.authenticated !== true) { redirectToLogin(); return; }
+        if (typeof account.csrf_token === "string" && account.csrf_token) csrfToken = account.csrf_token;
+        if ($("current-account") && typeof account.username === "string") {
+          $("current-account").textContent = account.username;
+          $("current-account").title = `当前账户：${account.username}`;
+        }
+      } catch (error) {
+        if (!authRedirecting) {
+          state.busy = true;
+          updateControls();
+          $("examples-list").replaceChildren(make("p", "small muted", "无法验证登录状态，请刷新页面重试。"));
+          toast(`无法验证登录状态：${error.message}`, true);
+        }
+        return;
+      }
+    }
     loadHistory();
     try {
-      const data=await api("/api/examples");state.examples=data.examples||[];
+      const data=await api("/api/examples");if(authRedirecting)return;state.examples=data.examples||[];
       if(state.examples.length){const first=state.examples[0];await loadCode(first.code,first.title,first.description,`${first.id}.py`,first.id);}
       else {renderExamples();await loadCode("message = \"Hello, PyScope!\"\nprint(message)\n","运行观察台","编写代码并开始一次可视化调试。");}
     } catch(error) {
+      if (authRedirecting) return;
       $("examples-list").replaceChildren(make("p","small muted",`示例载入失败：${error.message}`));
       editor.setValue("message = \"Hello, PyScope!\"\nprint(message)\n");toast("示例暂不可用，仍可编写自己的代码",true);
     }

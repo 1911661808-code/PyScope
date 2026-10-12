@@ -1,0 +1,40 @@
+@charset "UTF-8";
+/* Authentication additions are scoped; the local workspace stays unchanged. */
+.auth-page{min-height:100vh;min-height:100dvh;background:#0b1118}
+.auth-layout{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:40px 20px}
+.auth-brand{margin-bottom:28px;font-size:27px}
+.auth-brand .brand-mark{width:34px;height:34px;font-size:23px;line-height:32px}
+.auth-card{width:100%;max-width:436px;border:1px solid #344a5b;border-radius:12px;background:#121c27;box-shadow:0 16px 44px #0003;padding:32px}
+.auth-kicker{display:inline-block;color:#9ecbbd;font-size:12px;line-height:1.7;margin-bottom:8px}
+.auth-card-heading h1{font-size:25px;line-height:1.5;font-weight:650;margin:0}
+.auth-card-heading p{font-size:13px;line-height:1.8;color:#a9bccb;margin:8px 0 0}
+.auth-form{margin-top:28px}
+.auth-field{margin-bottom:20px}
+.auth-field label{display:block;margin-bottom:8px;color:#dce7ef;font-size:13px;font-weight:550}
+.auth-field input{display:block;width:100%;min-width:0;min-height:46px;border:1px solid #5c7487;border-radius:8px;background:#0e1721;color:#eef6fb;padding:11px 12px;font:14px/1.6 var(--font)}
+.auth-field input::placeholder{color:#9aafbf}
+.auth-field input:hover:not(:disabled){border-color:#7c96a8}
+.auth-field input:focus-visible{outline:2px solid #94efd5;outline-offset:2px;border-color:#94efd5}
+.auth-field input[aria-invalid="true"]{border-color:#eea0ad}
+.auth-field input:disabled{color:#98aebb;background:#182633;cursor:wait}
+.auth-password-wrap{position:relative}
+.auth-password-wrap input{padding-right:68px}
+.auth-password-toggle{position:absolute;right:5px;top:5px;bottom:5px;min-width:52px;padding:4px 8px;border:1px solid transparent;border-radius:6px;background:transparent;color:#b5d9cc;font-size:12px}
+.auth-password-toggle:hover:not(:disabled){background:#203b33;color:#e1f9ee}
+.auth-error{margin:4px 0 18px;padding:12px;border:1px solid #a36774;border-radius:8px;background:#35232d;color:#f5bec9;font-size:13px;line-height:1.75;overflow-wrap:anywhere}
+.auth-submit{display:flex;align-items:center;justify-content:center;gap:16px;width:100%;min-height:46px;font-size:14px}
+.auth-submit-arrow{font-size:19px;line-height:1}
+.auth-submit:disabled{cursor:wait}
+.auth-status{min-height:20px;color:#b6daca;font-size:12px;line-height:1.7;margin:8px 0 0}
+.auth-support{margin:18px 0 0;padding-top:18px;border-top:1px solid #314452;color:#a8bcc9;font-size:12px;line-height:1.8}
+.auth-footer{margin:20px 0 0;color:#9eb4c3;font-size:12px;line-height:1.8}
+.account-controls{display:flex;align-items:center;gap:10px;min-width:0;padding-left:16px;border-left:1px solid #3b5363}
+.account-name{display:block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d2e4db;font-size:13px}
+.account-logout{min-height:36px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.account-logout:disabled{cursor:wait}
+.server-workspace .local-pill{color:#c4d8dc;border-color:#4a6372}
+@media(max-width:1050px){.server-workspace .header-caption,.server-workspace .header-divider{display:none}.server-workspace .header-end{gap:10px}.account-name{max-width:110px}}
+@media(max-width:760px){.server-workspace .header-end{gap:7px}.account-controls{gap:5px;padding-left:0;border-left:0}.account-name{max-width:48px;font-size:12px}.account-logout{min-height:36px;padding:6px;font-size:12px}.server-workspace .header-end #help-button{width:32px;min-width:32px}.server-workspace #workspace-menu-button{padding-inline:8px}}
+@media(max-width:420px){.auth-layout{padding:28px 16px}.auth-brand{margin-bottom:20px}.auth-card{padding:24px 20px;border-radius:10px}.auth-card-heading h1{font-size:23px}.auth-form{margin-top:24px}}
+@media(max-width:360px){.server-workspace{--header-height:108px}.server-workspace .app-header{height:108px;flex-wrap:wrap;gap:8px;padding:8px 12px}.server-workspace .header-end{display:contents}.server-workspace #workspace-menu-button{margin-left:auto;order:1}.server-workspace #help-button{order:2}.server-workspace .account-controls{order:3;flex-basis:100%;justify-content:space-between;min-height:40px;border-top:1px solid #344a5b;padding-top:4px}.server-workspace .account-name{max-width:calc(100% - 60px);font-size:13px}.auth-card{padding:22px 16px}}
+@media(prefers-reduced-motion:reduce){.auth-page *{transition:none!important;animation:none!important}}

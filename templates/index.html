@@ -5,20 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b1118">
+  <meta name="csrf-token" content="{{ csrf_token | default('', true) }}">
   <title>PyScope · Python 运行观察台</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/codemirror/codemirror.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% if server_mode %}<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">{% endif %}
   <script defer src="{{ url_for('static', filename='vendor/codemirror/codemirror.js') }}"></script>
   <script defer src="{{ url_for('static', filename='vendor/codemirror/python.js') }}"></script>
   <script defer src="{{ url_for('static', filename='app.js') }}"></script>
 </head>
-<body>
+<body{% if server_mode %} class="server-workspace"{% endif %} data-server-mode="{{ 'true' if server_mode else 'false' }}">
   <a class="skip-link" href="#main-workspace">跳到编辑工作区</a>
   <header class="app-header">
     <a class="brand" href="/" aria-label="PyScope 首页" translate="no"><span class="brand-mark" aria-hidden="true">P<span>›</span></span><span>PyScope<span class="brand-dot">.</span></span></a>
     <span class="header-divider" aria-hidden="true"></span><span class="header-caption">Python 程序执行实验室</span>
-    <div class="header-end"><button type="button" class="workspace-menu-button subtle-button" id="workspace-menu-button" aria-controls="workspace-sidebar" aria-expanded="false">工作空间</button><span class="local-pill"><i aria-hidden="true"></i> 本地运行</span><button class="icon-button" id="help-button" title="使用说明与快捷键" aria-label="使用说明与快捷键">?</button></div>
+    <div class="header-end"><button type="button" class="workspace-menu-button subtle-button" id="workspace-menu-button" aria-controls="workspace-sidebar" aria-expanded="false">工作空间</button><span class="local-pill"><i aria-hidden="true"></i> {% if server_mode %}服务器模式{% else %}本地运行{% endif %}</span>{% if server_mode %}<div class="account-controls" aria-label="登录账户"><span id="current-account" class="account-name" title="当前账户：{{ current_username | default('', true) }}">{{ current_username | default('', true) }}</span><button id="logout-button" class="subtle-button account-logout" type="button" title="退出登录，并停止当前调试">退出</button></div>{% endif %}<button class="icon-button" id="help-button" title="使用说明与快捷键" aria-label="使用说明与快捷键">?</button></div>
   </header>
   <button type="button" id="workspace-backdrop" class="workspace-backdrop" aria-label="关闭工作空间" tabindex="-1" hidden></button>
   <div class="app-shell">

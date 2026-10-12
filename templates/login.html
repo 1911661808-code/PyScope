@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1118">
+  <meta name="csrf-token" content="{{ csrf_token | default('', true) }}">
+  <title>登录 · PyScope</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+  <script defer src="{{ url_for('static', filename='auth.js') }}"></script>
+</head>
+<body class="auth-page">
+  <main class="auth-layout">
+    <div class="auth-brand brand" aria-label="PyScope" translate="no"><span class="brand-mark" aria-hidden="true">P<span>›</span></span><span>PyScope<span class="brand-dot">.</span></span></div>
+    <section class="auth-card" aria-labelledby="login-title">
+      <div class="auth-card-heading"><span class="auth-kicker">服务器工作空间</span><h1 id="login-title">登录 PyScope</h1><p>输入账户和密码，继续你的程序调试与分析。</p></div>
+      <form id="login-form" class="auth-form" novalidate>
+        <div class="auth-field"><label for="login-username">账户</label><input id="login-username" name="username" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="login-error" placeholder="请输入账户"></div>
+        <div class="auth-field"><label for="login-password">密码</label><div class="auth-password-wrap"><input id="login-password" name="password" type="password" required autocomplete="current-password" aria-describedby="login-error" placeholder="请输入密码"><button id="toggle-password" class="auth-password-toggle" type="button" aria-controls="login-password" aria-pressed="false" aria-label="显示密码">显示</button></div></div>
+        <div id="login-error" class="auth-error" role="alert" aria-live="assertive" tabindex="-1" hidden></div>
+        <button id="login-submit" class="primary-button auth-submit" type="submit"><span id="login-submit-label">登录工作空间</span><span class="auth-submit-arrow" aria-hidden="true">→</span></button>
+        <p id="login-status" class="auth-status" role="status" aria-live="polite"></p>
+      </form>
+      <noscript><p class="auth-error">登录需要 JavaScript。请在浏览器中启用后刷新页面。</p></noscript>
+      <p class="auth-support">无法登录时，请联系此工作空间的管理员。</p>
+    </section>
+    <p class="auth-footer">Python 程序执行实验室</p>
+  </main>
+</body>
+</html>

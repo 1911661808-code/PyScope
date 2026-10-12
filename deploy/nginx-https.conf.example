@@ -1,0 +1,39 @@
+# Template only: replace the address and certificate paths before nginx -t.
+# Put inside nginx's http context (for example /etc/nginx/conf.d/pyscope.conf).
+# The certificate must cover the chosen IP address or DNS name and be trusted
+# by each client. Do not tell users to bypass browser certificate validation.
+server {
+    listen 443 ssl;
+    server_name REPLACE_WITH_CERTIFICATE_IP_OR_NAME;
+
+    ssl_certificate /etc/pyscope/tls/fullchain.pem;
+    ssl_certificate_key /etc/pyscope/tls/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    # Match the same public host in server.json allowed_origins.
+    if ($host != "REPLACE_WITH_CERTIFICATE_IP_OR_NAME") { return 444; }
+    client_max_body_size 150000;
+
+    location / {
+        proxy_pass http://127.0.0.1:9000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # The deployment uses exactly one local proxy. Overwrite rather than
+        # append client-controlled forwarding chains.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Forwarded "";
+        proxy_set_header Connection "";
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_cache off;
+    }
+}
+
+# No HTTP password/login listener is included. Keep port 9000 private.
+# Existing other nginx sites are outside this template and must be reviewed
+# before enabling a new listener on a shared server.

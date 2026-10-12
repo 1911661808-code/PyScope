@@ -1,0 +1,30 @@
+# Install in the dedicated user's ~/.config/systemd/user/pyscope.service.
+# This is a user service. Do not add User= or run dockerd as a system service.
+[Unit]
+Description=PyScope authenticated server
+Requires=docker.service
+After=docker.service
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pyscope
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=DOCKER_HOST=unix://%t/docker.sock
+EnvironmentFile=-/etc/pyscope/server.env
+ExecStart=/opt/pyscope/.venv/bin/python /opt/pyscope/server.py --config /etc/pyscope/server.json serve
+Restart=on-failure
+RestartSec=5
+# server.py handles SIGTERM; allow time for worker/container cleanup.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

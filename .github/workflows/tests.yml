@@ -1,0 +1,164 @@
+name: Python and Docker tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PYSCOPE_WORKER_IMAGE: pyscope-worker:1.1.0
+
+jobs:
+  unit-and-docker:
+    name: Python 3.12 and Docker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-server.txt
+      - name: Install application and server dependencies
+        run: python -m pip install -r requirements-server.txt
+      - name: Unit tests (Docker integration explicitly disabled)
+        env:
+          PYSCOPE_DOCKER_TESTS: "0"
+        run: python -X utf8 -m unittest discover -s tests -v
+      - name: Build worker with the runner Docker daemon
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+        run: |
+          docker info
+          docker build -f sandbox/Dockerfile -t "$PYSCOPE_WORKER_IMAGE" .
+      - name: Full suite with real Docker integration
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          PYSCOPE_DOCKER_TESTS: "1"
+          PYSCOPE_REQUIRE_ROOTLESS: "0"
+        run: python -X utf8 -m unittest discover -s tests -v
+      - name: Docker diagnostics on failure
+        if: failure()
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+        run: |
+          docker info || true
+          docker ps --all || true
+
+  rootless-docker:
+    name: Rootless Docker and enforced cgroup limits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYSCOPE_DOCKER_TESTS: "1"
+      PYSCOPE_REQUIRE_ROOTLESS: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-server.txt
+      - name: Install application and server dependencies
+        run: python -m pip install -r requirements-server.txt
+      - name: Prepare rootless Docker and cgroup delegation
+        run: |
+          # Hosted Ubuntu only: use Docker's packaged setup tool and its
+          # AppArmor profile, rather than disabling Ubuntu userns protection.
+          # https://docs.docker.com/engine/security/rootless/
+          # https://docs.docker.com/engine/security/rootless/tips/
+          test "$(id -u)" -ne 0
+          test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
+          sudo apt-get update
+          sudo apt-get install -y uidmap dbus-user-session slirp4netns fuse-overlayfs
+          if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
+            sudo apt-get install -y docker-ce-rootless-extras
+          fi
+
+          runner_user=$(id -un)
+          runner_uid=$(id -u)
+          # Preserve existing mappings; allocate a non-overlapping range only
+          # when this disposable runner account lacks a usable one.
+          for mapping in subuid subgid; do
+            if ! awk -F: -v user="$runner_user" -v uid="$runner_uid" \
+              '($1 == user || $1 == uid) && $3 >= 65536 {found=1} END {exit !found}' \
+              "/etc/$mapping"; then
+              range_start=$(awk -F: 'BEGIN {next_id=100000} $2+$3 > next_id {next_id=$2+$3} END {print next_id}' "/etc/$mapping")
+              range_end=$((range_start + 65535))
+              sudo usermod "--add-${mapping}s" "$range_start-$range_end" "$runner_user"
+            fi
+          done
+
+          sudo mkdir -p /etc/systemd/system/user@.service.d
+          printf '[Service]\nDelegate=cpu cpuset io memory pids\n' \
+            | sudo tee /etc/systemd/system/user@.service.d/pyscope-delegate.conf >/dev/null
+          sudo systemctl daemon-reload
+          sudo loginctl enable-linger "$runner_user"
+          sudo systemctl restart "user@$runner_uid.service"
+          export XDG_RUNTIME_DIR="/run/user/$runner_uid"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+          export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
+          printf 'XDG_RUNTIME_DIR=%s\nDBUS_SESSION_BUS_ADDRESS=%s\nDOCKER_HOST=%s\n' \
+            "$XDG_RUNTIME_DIR" "$DBUS_SESSION_BUS_ADDRESS" "$DOCKER_HOST" >> "$GITHUB_ENV"
+          systemctl --user show-environment >/dev/null
+          rootlesskit true
+          # --force permits the separate, existing rootful daemon only;
+          # every subsequent Docker command targets the user socket above.
+          dockerd-rootless-setuptool.sh install --force
+          systemctl --user enable --now docker.service
+          docker info
+          test -S "$XDG_RUNTIME_DIR/docker.sock"
+          test "$(stat -c %u "$XDG_RUNTIME_DIR/docker.sock")" = "$runner_uid"
+
+      - name: Build worker using the rootless daemon
+        run: docker build -f sandbox/Dockerfile -t "$PYSCOPE_WORKER_IMAGE" .
+      - name: Require actual rootless isolation and resource limits
+        run: |
+          python - <<'PY'
+          import os
+          from execution_backend import DockerBackend
+
+          expected = f"unix:///run/user/{os.getuid()}/docker.sock"
+          if os.environ.get("DOCKER_HOST") != expected:
+              raise SystemExit("Docker must use this non-root user's socket")
+          backend = DockerBackend(image=os.environ["PYSCOPE_WORKER_IMAGE"])
+          try:
+              backend.verify(require_rootless=True)
+              print("Rootless daemon and effective worker isolation verified")
+          finally:
+              backend.close()
+          PY
+      - name: Full suite with mandatory rootless integration
+        run: python -X utf8 -m unittest discover -s tests -v
+      - name: Rootless diagnostics on failure
+        if: failure()
+        run: |
+          if [ -n "${DOCKER_HOST:-}" ]; then
+            docker info || true
+            docker ps --all || true
+          fi
+          systemctl --user --no-pager status docker.service || true
+          journalctl --user --unit docker.service --no-pager --lines=100 || true
+          systemctl --no-pager show "user@$(id -u).service" -p Delegate -p ControlGroup || true

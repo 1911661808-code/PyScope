@@ -13,7 +13,7 @@ import tempfile
 import threading
 import webbrowser
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, g, jsonify, render_template, request, send_file
 from analysis_engine import analyze, validate_code
 from examples import EXAMPLES
 from session_manager import SessionManager
@@ -22,18 +22,32 @@ ROOT = Path(__file__).resolve().parent
 TERMINAL = {'completed', 'error', 'stopped', 'limited'}
 
 
-def create_app(data_dir=None, manager=None):
+def create_app(data_dir=None, manager=None, server_config=None):
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 150_000
     app.json.ensure_ascii = False
     sessions = manager or SessionManager()
+    server_mode = server_config is not None
+    if server_mode:
+        from execution_backend import DockerBackend
+        from server import validate_config
+        validate_config(server_config)
+        if not isinstance(sessions.backend, DockerBackend):
+            raise ValueError('服务器模式必须使用 DockerBackend，禁止回退到本地进程。')
+        sessions.backend.verify(require_rootless=True)
     app.extensions['sessions'] = sessions
     directory = Path(data_dir or os.environ.get('PYSCOPE_DATA_DIR', ROOT / 'data'))
     directory.mkdir(parents=True, exist_ok=True)
+    if server_mode:
+        from auth import Auth
+        app.extensions['auth'] = Auth(app, directory, server_config)
     db = directory / 'history.sqlite3'
     lock = threading.Lock()
     persisted = set()
     pending = set()
+    owners = {}
+    admission_lock = threading.Lock()
+    execution_slots = threading.BoundedSemaphore(4)
     shutdown_event = threading.Event()
 
     @contextmanager
@@ -48,6 +62,27 @@ def create_app(data_dir=None, manager=None):
     with connection() as conn:
         conn.execute('PRAGMA journal_mode=WAL')
         conn.execute('CREATE TABLE IF NOT EXISTS history (id TEXT PRIMARY KEY, title TEXT, status TEXT, event_count INTEGER, created_at TEXT, payload TEXT)')
+        if 'owner' not in {row[1] for row in conn.execute('PRAGMA table_info(history)')}:
+            conn.execute('ALTER TABLE history ADD COLUMN owner TEXT')
+        conn.execute('CREATE INDEX IF NOT EXISTS history_owner ON history(owner)')
+
+    def owner():
+        return g.username if server_mode else None
+
+    def owned(sid):
+        if server_mode and owners.get(sid) != owner():
+            raise KeyError(sid)
+
+    @contextmanager
+    def execution_slot():
+        if server_mode and not execution_slots.acquire(blocking=False):
+            from werkzeug.exceptions import TooManyRequests
+            raise TooManyRequests('分析任务繁忙，请稍后重试。')
+        try:
+            yield
+        finally:
+            if server_mode:
+                execution_slots.release()
 
     def persist(state):
         if state['status'] not in TERMINAL:
@@ -62,10 +97,20 @@ def create_app(data_dir=None, manager=None):
             title = (lines[0] if lines else '未命名程序')[:65]
             serialized = json.dumps(complete, ensure_ascii=False)
             with connection() as conn:
-                conn.execute('INSERT OR IGNORE INTO history VALUES (?,?,?,?,?,?)',
+                conn.execute('INSERT OR IGNORE INTO history (id,title,status,event_count,created_at,payload,owner) VALUES (?,?,?,?,?,?,?)',
                              (state['id'], title, complete['status'], complete['total_events'],
-                              str(complete.get('created_at', '')), serialized))
-                conn.execute('DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY rowid DESC LIMIT 100)')
+                              str(complete.get('created_at', '')), serialized, owners.get(state['id'])))
+                conn.execute('DELETE FROM history WHERE owner IS ? AND id NOT IN (SELECT id FROM history WHERE owner IS ? ORDER BY rowid DESC LIMIT 100)',
+                             (owners.get(state['id']), owners.get(state['id'])))
+                conn.execute('DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY rowid DESC LIMIT 1000)')
+                if server_mode:
+                    # 同时按总数据量淘汰最旧记录，避免大快照耗尽服务器磁盘。
+                    rows = conn.execute('SELECT id,LENGTH(CAST(payload AS BLOB)) FROM history ORDER BY rowid DESC').fetchall()
+                    total = 0
+                    for row_id, size in rows:
+                        total += size
+                        if total > 128 * 1024 * 1024:
+                            conn.execute('DELETE FROM history WHERE id=?', (row_id,))
             persisted.add(state['id'])
             pending.discard(state['id'])
 
@@ -99,6 +144,8 @@ def create_app(data_dir=None, manager=None):
 
     @app.before_request
     def local_only():
+        if server_mode:
+            return None
         # 防止浏览器其他站点跨源调用本地执行接口；这不是代码安全沙箱。
         if request.host.split(':')[0] not in ('localhost', '127.0.0.1'):
             return jsonify(error='只允许通过 localhost 或 127.0.0.1 访问。'), 403
@@ -119,6 +166,16 @@ def create_app(data_dir=None, manager=None):
     @app.errorhandler(ValueError)
     def invalid(exc):
         return jsonify(error=str(exc)), 400
+
+    from execution_backend import ExecutionTimeout
+
+    @app.errorhandler(ExecutionTimeout)
+    def execution_timeout(exc):
+        return jsonify(error=str(exc)), 408
+
+    @app.errorhandler(429)
+    def busy(exc):
+        return jsonify(error=exc.description, message=exc.description), 429
 
     @app.errorhandler(KeyError)
     def missing(exc):
@@ -145,11 +202,17 @@ def create_app(data_dir=None, manager=None):
 
     @app.get('/')
     def index():
-        return render_template('index.html')
+        return render_template('index.html', server_mode=server_mode,
+                               current_username=owner(), csrf_token=g.auth['csrf'] if server_mode else '')
+
+    @app.get('/api/auth/me')
+    def me():
+        return jsonify(authenticated=True, username=owner(), server_mode=server_mode,
+                       csrf_token=g.auth['csrf'] if server_mode else None)
 
     @app.get('/api/health')
     def health():
-        return jsonify(ok=True, python=sys.version.split()[0], mode='local')
+        return jsonify(ok=True, python=sys.version.split()[0], mode='server' if server_mode else 'local')
 
     @app.get('/api/examples')
     def examples():
@@ -157,20 +220,42 @@ def create_app(data_dir=None, manager=None):
 
     @app.post('/api/analyze')
     def structure():
-        return jsonify(analyze(body().get('code')))
+        code = validate_code(body().get('code'))
+        with execution_slot():
+            return jsonify(sessions.backend.analyze(code))
 
     @app.post('/api/sessions')
     def start():
         data = body()
         code = validate_code(data.get('code'))
-        compile(code, '<pyscope>', 'exec')
-        sid = sessions.start(code, checked_breakpoints(data.get('breakpoints', [])))
-        with lock:
-            pending.add(sid)
+        points = checked_breakpoints(data.get('breakpoints', []))
+        with execution_slot(), admission_lock:
+            if server_mode:
+                active = 0
+                for known, username in tuple(owners.items()):
+                    try:
+                        prior = sessions.get(known, 10**12)
+                        if username == owner() and prior['status'] not in TERMINAL:
+                            active += 1
+                    except KeyError:
+                        if known not in pending:
+                            owners.pop(known, None)
+                            persisted.discard(known)
+                if active >= 2:
+                    from werkzeug.exceptions import TooManyRequests
+                    raise TooManyRequests('每个账号最多同时保留两个调试会话，请先停止已有会话。')
+                sessions.backend.analyze(code)
+            else:
+                compile(code, '<pyscope>', 'exec')
+            sid = sessions.start(code, points)
+            with lock:
+                owners[sid] = owner()
+                pending.add(sid)
         return jsonify(sessions.get(sid, -1)), 201
 
     @app.get('/api/sessions/<sid>')
     def state(sid):
+        owned(sid)
         try:
             after = int(request.args.get('after', '-1'))
         except (ValueError, TypeError):
@@ -184,6 +269,7 @@ def create_app(data_dir=None, manager=None):
         data = body()
         if not isinstance(data.get('command'), str):
             raise ValueError('command 必须为 step、run、pause 或 stop 字符串。')
+        owned(sid)
         points = checked_breakpoints(data['breakpoints']) if 'breakpoints' in data else None
         result = sessions.command(sid, data.get('command'), points)
         persist(result)
@@ -192,10 +278,11 @@ def create_app(data_dir=None, manager=None):
     @app.get('/api/sessions/<sid>/export')
     def export(sid):
         try:
+            owned(sid)
             result = sessions.get(sid, -1)
         except KeyError:
             with connection() as conn:
-                record = conn.execute('SELECT payload FROM history WHERE id=?', (sid,)).fetchone()
+                record = conn.execute('SELECT payload FROM history WHERE id=? AND owner IS ?', (sid, owner())).fetchone()
             if not record:
                 raise KeyError(sid)
             result = json.loads(record[0])
@@ -206,35 +293,21 @@ def create_app(data_dir=None, manager=None):
     @app.post('/api/profile')
     def profile():
         code = validate_code(body().get('code'))
-        compile(code, '<pyscope>', 'exec')
-        with tempfile.TemporaryDirectory(prefix='pyscope-profile-') as temp:
-            try:
-                worker_command = ([sys.executable, '--profile-worker'] if getattr(sys, 'frozen', False)
-                                  else [sys.executable, '-I', str(ROOT / 'profile_worker.py')])
-                completed = subprocess.run(worker_command,
-                    input=json.dumps({'code': code}), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    text=True, encoding='utf-8', errors='replace', cwd=temp, timeout=10,
-                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-            except subprocess.TimeoutExpired:
-                return jsonify(error='性能分析超过 10 秒，已终止该运行。'), 408
-        if completed.returncode or not completed.stdout.strip():
-            return jsonify(error='性能分析进程未正常完成。'), 422
-        try:
-            result = json.loads(completed.stdout)
-        except json.JSONDecodeError:
-            return jsonify(error='性能分析结果格式异常。'), 422
-        return jsonify(result)
+        with execution_slot():
+            if not server_mode:
+                compile(code, '<pyscope>', 'exec')
+            return jsonify(sessions.backend.run_profile(code))
 
     @app.get('/api/history')
     def history():
         with connection() as conn:
-            rows = conn.execute('SELECT id,title,status,event_count,created_at FROM history ORDER BY rowid DESC LIMIT 100').fetchall()
+            rows = conn.execute('SELECT id,title,status,event_count,created_at FROM history WHERE owner IS ? ORDER BY rowid DESC LIMIT 100', (owner(),)).fetchall()
         return jsonify(history=[dict(zip(('id','title','status','event_count','created_at'), row)) for row in rows])
 
     @app.get('/api/history/<sid>')
     def history_item(sid):
         with connection() as conn:
-            row = conn.execute('SELECT payload FROM history WHERE id=?', (sid,)).fetchone()
+            row = conn.execute('SELECT payload FROM history WHERE id=? AND owner IS ?', (sid, owner())).fetchone()
         if not row:
             raise KeyError(sid)
         return jsonify(json.loads(row[0]))
@@ -242,7 +315,9 @@ def create_app(data_dir=None, manager=None):
     @app.delete('/api/history/<sid>')
     def history_delete(sid):
         with lock, connection() as conn:
-            conn.execute('DELETE FROM history WHERE id=?', (sid,))
+            if server_mode and not conn.execute('SELECT 1 FROM history WHERE id=? AND owner=?', (sid, owner())).fetchone():
+                raise KeyError(sid)
+            conn.execute('DELETE FROM history WHERE id=? AND owner IS ?', (sid, owner()))
             persisted.add(sid)
             pending.discard(sid)
         return jsonify(ok=True)

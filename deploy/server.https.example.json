@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "secret_key": "",
+  "users": {},
+  "allowed_origins": ["https://192.0.2.10"],
+  "secure_cookie": true,
+  "data_dir": "/var/lib/pyscope",
+  "port": 9000,
+  "docker_image": "pyscope-worker:1.1.0",
+  "docker_runtime": null,
+  "require_rootless": true,
+  "session_hours": 8
+}

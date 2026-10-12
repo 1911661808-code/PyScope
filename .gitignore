@@ -11,6 +11,10 @@ data/
 *.key
 *.log
 *.sqlite3
+*.sqlite3-*
+server.json
+server.lock
+*.tmp
 Windows免安装版/
 dist/
 build/

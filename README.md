@@ -10,7 +10,13 @@
 
 [GitHub Releases](https://github.com/1911661808-code/PyScope/releases) 提供完整作业包，包含 Windows 免安装版、源码、选题材料、项目报告和答辩 PPT。仓库保留可直接浏览的源码与材料，Windows 运行时随发行压缩包提供。
 
-腾讯云没有域名也能用于个人课程演示：在服务器本机运行，通过 SSH 隧道访问。具体步骤见 [腾讯云无域名部署说明](docs/腾讯云无域名部署说明.md)。当前版本不作为允许陌生用户提交代码的公网服务。
+**v1.1.0 已补充服务器登录和 Docker 执行隔离。** 账号由管理员创建，密码使用 scrypt 哈希；所有执行接口需要登录与 CSRF 校验，运行会话和历史记录按账号隔离。代码调试、性能分析和 AST 解析均在独立受限容器中完成。
+
+腾讯云没有域名也能部署：优先通过 SSH 隧道访问登录页。完整步骤见 [服务器安装与启动](deploy/README.md) 和 [服务器部署与安全边界](docs/服务器部署与安全边界.md)。服务器要求 Linux 非 root 账号、rootless Docker、有效的 cgroup v2 限制；检查失败拒绝启动。若要通过公网浏览器直接访问，还需可信 HTTPS 证书。没有默认密码，也没有公开注册。
+
+![服务器登录页](docs/screenshots/login.png)
+
+Windows 免安装版仍以本地模式运行。服务器新增入口为 `server.py`，依赖安装使用 `requirements-server.txt`；不要通过修改 `app.py` 的监听地址将本地模式暴露到公网。Docker 共享宿主内核，本项目面向受控账号，不承诺匿名任意代码执行平台的安全性。
 
 ## 直接运行 Windows 免安装版
 
@@ -72,7 +78,9 @@ py -3 -m venv .venv
 
 ## 支持范围与默认限制
 
-只运行自己信任的、单进程、单线程同步教学代码。执行子进程用于管理暂停、停止和超时，不是操作系统级安全沙箱。被执行代码仍具有当前用户的文件和网络权限。
+**本地模式：**只运行自己信任的、单进程、单线程同步教学代码。本地子进程用于管理暂停、停止和超时，被执行代码仍具有当前用户的文件和网络权限。
+
+**服务器模式：**每次执行使用无网络、只读根文件系统、非 root、移除 capabilities、禁止提权的独立容器，默认 128 MiB 内存、0.5 CPU、32 个进程。启动探针读取实际 cgroup 状态；指定 runtime 不可用时不降级。服务最多同时保留 4 个活跃调试会话，每账号 2 个，另限 4 个并发分析请求；内存缓存最多保留 4 个已结束会话，单会话协议总量最多 8,000,000 字符。持久化历史每账号最多 100 条、全局最多 1,000 条，并在总 payload 超过 128 MiB 时淘汰最旧记录。通信大小不是宿主进程 RSS 的硬限制。具体配置与局限见服务器说明。
 
 | 项目 | 默认值或行为 |
 | --- | --- |
@@ -111,7 +119,7 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests -v
 ```
 
-2026 年 10 月 12 日实测：33 项检查通过，其中 API 10 项、引擎 23 项。首轮耗时 14.949 秒，界面优化后的回归耗时 15.006 秒。检查包括首行真正暂停、单步与断点、递归、对象别名和循环引用、异常与中文输出、超时和资源限制、请求校验、跨源拒绝、历史记录与导出删除。测试运行时间与机器环境有关。
+原有 33 项 API 与引擎检查保留。v1.1.0 增加 10 项认证/授权检查、20 项执行边界检查，以及 6 项必须显式启用的真实 Docker 集成检查。Windows 无 Docker 时，容器检查明确跳过；GitHub Actions 分别在普通 Docker 和 rootless Docker 上构建镜像并验证真实隔离、资源限制、调试控制和容器清理。[查看 CI 结果](https://github.com/1911661808-code/PyScope/actions)。认证单测使用显式替代后端，不能作为容器验证证据。
 
 性能实验数据保存在 `docs/benchmark_results.json`。相同输入 `fibonacci(22)` 下，两种实现均输出 `17711`。重复递归函数调用 57,313 次，记忆化递归调用 43 次。每种实现运行 5 次，包含 cProfile 开销的代码执行时间中位数分别为 6.7365 ms 与 0.0719 ms；该时间不包含进程启动，不能当作其他机器上的性能保证。
 
@@ -129,6 +137,11 @@ py -3 -m venv .venv
 PyScope/
   app.py                  Flask API 与 SQLite 历史
   session_manager.py      调试会话与进程生命周期
+  auth.py                 服务器登录、会话、CSRF 与限流
+  server.py               配置初始化、账号管理、预检与 Waitress 启动
+  execution_backend.py    本地/容器后端与不可信协议校验
+  sandbox/                隔离 worker 镜像与 AST 入口
+  deploy/                 rootless Docker、systemd、SSH/HTTPS 部署模板
   trace_worker.py         执行跟踪与对象快照
   analysis_engine.py      AST 分析
   profile_worker.py       独立性能分析
