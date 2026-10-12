@@ -23,14 +23,14 @@
 | `/opt/pyscope` | 程序和 `.venv`；发布后由管理员维护，服务只读 |
 | `/etc/pyscope/server.json` | 专用账户拥有、0600 的真实配置，包含敏感密钥与密码哈希 |
 | `/etc/pyscope/server.env` | 可选环境文件，管理员维护，不保存明文口令 |
-| `/var/lib/pyscope` | 服务账户拥有的运行数据目录，限制其他用户读取 |
+| `/var/lib/pyscope` | 服务账户拥有、0700 的运行数据目录，数据库权限为 0600 |
 | 专用账户 home | rootless Docker 状态及 `.config/systemd/user` |
 
 确认专用账户已经建立后，管理员可按本模板建立目录：
 
 ```bash
-sudo install -d -m 0750 -o pyscope -g pyscope /opt/pyscope /var/lib/pyscope
-sudo install -d -m 0700 -o pyscope -g pyscope /etc/pyscope
+sudo install -d -m 0750 -o pyscope -g pyscope /opt/pyscope
+sudo install -d -m 0700 -o pyscope -g pyscope /etc/pyscope /var/lib/pyscope
 ```
 
 后续初始化、用户管理和应用启动都使用 `pyscope` 账户，保持文件权限一致。服务代码安装完成后可由管理员调整为只读发布目录，但真实配置和运行数据仍需由专用账户维护。不要在共享可写目录中放服务代码、配置或 Docker socket。

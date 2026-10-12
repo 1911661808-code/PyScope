@@ -92,10 +92,35 @@ jobs:
           test "$(id -u)" -ne 0
           test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
           sudo apt-get update
-          sudo apt-get install -y uidmap dbus-user-session slirp4netns fuse-overlayfs
+          sudo apt-get install -y ca-certificates curl apparmor uidmap dbus-user-session slirp4netns fuse-overlayfs
           if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
+            # Runner images can contain Docker binaries without Docker's APT
+            # source. Add the official signed source before installing extras.
+            # https://docs.docker.com/engine/install/ubuntu/#install-using-the-apt-repository
+            sudo install -m 0755 -d /etc/apt/keyrings
+            sudo curl --fail --silent --show-error --location \
+              https://download.docker.com/linux/ubuntu/gpg \
+              --output /etc/apt/keyrings/docker.asc
+            sudo chmod 0644 /etc/apt/keyrings/docker.asc
+            . /etc/os-release
+            printf '%s\n' \
+              'Types: deb' \
+              'URIs: https://download.docker.com/linux/ubuntu' \
+              "Suites: ${UBUNTU_CODENAME:-$VERSION_CODENAME}" \
+              'Components: stable' \
+              "Architectures: $(dpkg --print-architecture)" \
+              'Signed-By: /etc/apt/keyrings/docker.asc' \
+              | sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null
+            sudo apt-get update
             sudo apt-get install -y docker-ce-rootless-extras
           fi
+          command -v dockerd-rootless-setuptool.sh
+          command -v rootlesskit
+          # Ubuntu's packaged profile permits rootlesskit user namespaces while
+          # retaining the host's AppArmor restrictions for other executables.
+          test -f /etc/apparmor.d/rootlesskit
+          sudo apparmor_parser --replace /etc/apparmor.d/rootlesskit
+          rootlesskit --version
 
           runner_user=$(id -un)
           runner_uid=$(id -u)

@@ -28,3 +28,11 @@ Windows免安装版 → PyScope → PyScope.exe
 源码版可使用 start.bat 启动（需要 Python，首次安装依赖需联网）。
 docs 中保存实测数据、自动测试日志、界面截图及设计说明。
 演示前请在实际答辩电脑上完整启动一次，并熟悉演示脚本中的原理说明。
+
+五、v1.1.0 服务器版
+新增账号登录、运行记录权限控制和 rootless Docker 代码隔离。
+Linux 服务器安装 requirements-server.txt，通过 server.py 初始化账号、检查环境并启动。
+没有默认密码；没有域名时可使用 SSH 隧道访问。详细步骤见 deploy/README.md。
+Windows 免安装版仍用于本机可信代码；不要将本地入口改成公网监听。
+提交材料中的项目报告与答辩稿保留最初课程版本，服务器扩展的实现与验证见
+docs/服务器部署与安全边界.md 和 docs/服务器版验证.json。
