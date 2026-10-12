@@ -2,152 +2,77 @@ PyScope v1.1.0 Windows 源码测试，2026-10-12
 Docker 与服务器真实联调结果另见 服务器版验证.json。
 
 test_ast_facts_and_syntax_error (test_api.ApiTests.test_ast_facts_and_syntax_error) ... ok
-
 test_bad_inputs_and_cross_origin (test_api.ApiTests.test_bad_inputs_and_cross_origin) ... ok
-
 test_command_type_and_broken_exception_string (test_api.ApiTests.test_command_type_and_broken_exception_string) ... ok
-
 test_health_and_examples (test_api.ApiTests.test_health_and_examples) ... ok
-
 test_history_without_browser_polling_and_deletion (test_api.ApiTests.test_history_without_browser_polling_and_deletion) ... ok
-
 test_profile_measures_real_functions (test_api.ApiTests.test_profile_measures_real_functions) ... ok
-
 test_profile_timeout (test_api.ApiTests.test_profile_timeout) ... ok
-
 test_real_debugging_history_and_export (test_api.ApiTests.test_real_debugging_history_and_export) ... ok
-
 test_unicode_output_and_exception (test_api.ApiTests.test_unicode_output_and_exception) ... ok
-
 test_unknown_session (test_api.ApiTests.test_unknown_session) ... ok
-
 test_authentication_required_every_execution_and_history_route (test_auth.AuthTests.test_authentication_required_every_execution_and_history_route) ... ok
-
 test_credentials_change_revokes_existing_session (test_auth.AuthTests.test_credentials_change_revokes_existing_session) ... ok
-
 test_cross_origin_bad_host_and_cookie_flags (test_auth.AuthTests.test_cross_origin_bad_host_and_cookie_flags) ... ok
-
 test_invalid_unicode_and_session_expiry (test_auth.AuthTests.test_invalid_unicode_and_session_expiry) ... ok
-
 test_ownership_and_history_isolation (test_auth.AuthTests.test_ownership_and_history_isolation) ... ok
-
 test_per_user_active_limit (test_auth.AuthTests.test_per_user_active_limit) ... ok
-
 test_reject_local_backend_and_unsafe_config (test_auth.AuthTests.test_reject_local_backend_and_unsafe_config) ... ok
-
 test_rotation_csrf_logout_revokes_cookie (test_auth.AuthTests.test_rotation_csrf_logout_revokes_cookie) ... ok
-
 test_secure_cookie_and_origin_policy (test_auth.AuthTests.test_secure_cookie_and_origin_policy) ... ok
-
 test_wrong_password_rate_limit_and_expiry (test_auth.AuthTests.test_wrong_password_rate_limit_and_expiry) ... ok
-
 test_real_analysis_and_profile (test_docker_integration.DockerIntegrationTests.test_real_analysis_and_profile) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_real_debug_step_breakpoint_and_cleanup (test_docker_integration.DockerIntegrationTests.test_real_debug_step_breakpoint_and_cleanup) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_real_malformed_protocol_cleans_container (test_docker_integration.DockerIntegrationTests.test_real_malformed_protocol_cleans_container) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_real_network_host_files_environment_and_rootfs_isolation (test_docker_integration.DockerIntegrationTests.test_real_network_host_files_environment_and_rootfs_isolation) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_real_stop_cleans_blocked_container (test_docker_integration.DockerIntegrationTests.test_real_stop_cleans_blocked_container) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_real_timeout_cleans_container (test_docker_integration.DockerIntegrationTests.test_real_timeout_cleans_container) ... skipped '需要显式启用真实 Docker 集成测试'
-
 test_alias_cycles_and_stable_object_ids (test_engine.EngineTests.test_alias_cycles_and_stable_object_ids) ... ok
-
 test_breakpoint_in_loop_and_resume (test_engine.EngineTests.test_breakpoint_in_loop_and_resume) ... ok
-
 test_breakpoints_can_be_replaced (test_engine.EngineTests.test_breakpoints_can_be_replaced) ... ok
-
 test_caught_and_unhandled_exception_events (test_engine.EngineTests.test_caught_and_unhandled_exception_events) ... ok
-
 test_close_terminates_paused_process_and_is_idempotent (test_engine.EngineTests.test_close_terminates_paused_process_and_is_idempotent) ... ok
-
 test_containers_and_custom_objects_without_calling_repr (test_engine.EngineTests.test_containers_and_custom_objects_without_calling_repr) ... ok
-
 test_event_limit (test_engine.EngineTests.test_event_limit) ... ok
-
 test_exception_with_broken_string_conversion_is_reported (test_engine.EngineTests.test_exception_with_broken_string_conversion_is_reported) ... ok
-
 test_incremental_events_and_copies (test_engine.EngineTests.test_incremental_events_and_copies) ... ok
-
 test_initial_pause_is_before_first_executable_line (test_engine.EngineTests.test_initial_pause_is_before_first_executable_line) ... ok
-
 test_output_limit (test_engine.EngineTests.test_output_limit) ... ok
-
 test_pause_running_and_stop_native_wait (test_engine.EngineTests.test_pause_running_and_stop_native_wait) ... ok
-
 test_pause_time_is_excluded_from_execution_budget (test_engine.EngineTests.test_pause_time_is_excluded_from_execution_budget) ... ok
-
 test_recursion_exposes_call_stack_and_return_values (test_engine.EngineTests.test_recursion_exposes_call_stack_and_return_values) ... ok
-
 test_snapshot_depth_and_item_limits (test_engine.EngineTests.test_snapshot_depth_and_item_limits) ... ok
-
 test_snapshot_object_limits_have_no_dangling_references (test_engine.EngineTests.test_snapshot_object_limits_have_no_dangling_references) ... ok
-
 test_stack_limit (test_engine.EngineTests.test_stack_limit) ... ok
-
 test_step_and_completion_capture_real_values (test_engine.EngineTests.test_step_and_completion_capture_real_values) ... ok
-
 test_syntax_error_is_reported (test_engine.EngineTests.test_syntax_error_is_reported) ... ok
-
 test_unexpected_worker_exit_is_error (test_engine.EngineTests.test_unexpected_worker_exit_is_error) ... ok
-
 test_unicode_and_cumulative_output_history (test_engine.EngineTests.test_unicode_and_cumulative_output_history) ... ok
-
 test_validation_and_parallel_session_isolation (test_engine.EngineTests.test_validation_and_parallel_session_isolation) ... ok
-
 test_watchdog_stops_blocking_native_call (test_engine.EngineTests.test_watchdog_stops_blocking_native_call) ... ok
-
 test_create_error_always_attempts_remove (test_execution_backend.DockerPolicyTests.test_create_error_always_attempts_remove) ... ok
-
 test_no_workload_can_bypass_failed_verification (test_execution_backend.DockerPolicyTests.test_no_workload_can_bypass_failed_verification) ... ok
-
 test_normal_wait_and_stop_explicitly_remove_container (test_execution_backend.DockerPolicyTests.test_normal_wait_and_stop_explicitly_remove_container) ... ok
-
 test_one_shot_protocol_error_always_removes_container (test_execution_backend.DockerPolicyTests.test_one_shot_protocol_error_always_removes_container) ... ok
-
 test_one_shot_timeout_removes_container (test_execution_backend.DockerPolicyTests.test_one_shot_timeout_removes_container) ... ok
-
 test_pins_inspected_image_and_enforces_limits_for_each_worker (test_execution_backend.DockerPolicyTests.test_pins_inspected_image_and_enforces_limits_for_each_worker) ... ok
-
 test_rootless_is_mandatory_and_orphan_cleanup_is_label_scoped (test_execution_backend.DockerPolicyTests.test_rootless_is_mandatory_and_orphan_cleanup_is_label_scoped) ... ok
-
 test_start_error_always_removes_and_closes_pipes (test_execution_backend.DockerPolicyTests.test_start_error_always_removes_and_closes_pipes) ... ok
-
 test_unavailable_or_non_linux_image_never_falls_back_or_pulls (test_execution_backend.DockerPolicyTests.test_unavailable_or_non_linux_image_never_falls_back_or_pulls) ... ok
-
 test_verify_checks_effective_cgroups_and_privileges (test_execution_backend.DockerPolicyTests.test_verify_checks_effective_cgroups_and_privileges) ... ok
-
 test_frozen_local_worker_dispatch_preserved (test_execution_backend.ProtocolTests.test_frozen_local_worker_dispatch_preserved) ... ok
-
 test_invalid_json_shapes_and_nonfinite_numbers_are_rejected (test_execution_backend.ProtocolTests.test_invalid_json_shapes_and_nonfinite_numbers_are_rejected) ... ok
-
 test_message_and_event_types_rejected_without_host_exception (test_execution_backend.ProtocolTests.test_message_and_event_types_rejected_without_host_exception) ... ok
-
 test_unterminated_line_and_cumulative_output_are_bounded (test_execution_backend.ProtocolTests.test_unterminated_line_and_cumulative_output_are_bounded) ... ok
-
 test_local_profile_and_analysis_still_work (test_execution_backend.RealLocalBoundaryTests.test_local_profile_and_analysis_still_work) ... ok
-
 test_profile_timeout_and_raw_output_are_bounded (test_execution_backend.RealLocalBoundaryTests.test_profile_timeout_and_raw_output_are_bounded) ... ok
-
 test_raw_stderr_without_newline_is_limited (test_execution_backend.RealLocalBoundaryTests.test_raw_stderr_without_newline_is_limited) ... ok
-
 test_raw_stdout_cannot_crash_host_reader (test_execution_backend.RealLocalBoundaryTests.test_raw_stdout_cannot_crash_host_reader) ... ok
-
 test_raw_stdout_without_newline_is_limited (test_execution_backend.RealLocalBoundaryTests.test_raw_stdout_without_newline_is_limited) ... ok
-
 test_session_trace_budget_is_configurable_and_enforced (test_execution_backend.RealLocalBoundaryTests.test_session_trace_budget_is_configurable_and_enforced) ... ok
-
 test_server_cli_login_execution_history_logout_and_sigterm_cleanup (test_server_integration.ServerIntegrationTests.test_server_cli_login_execution_history_logout_and_sigterm_cleanup) ... skipped '需要 Linux 和显式启用的真实 rootless Docker 服务器集成测试'
 
-
-
 ----------------------------------------------------------------------
-
 Ran 70 tests in 25.474s
 
-
-
 OK (skipped=7)
-
