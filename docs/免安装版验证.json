@@ -8,7 +8,7 @@
     {
       "name": "首页、模板及全部静态资源",
       "passed": true,
-      "file_count": 8
+      "file_count": 10
     },
     {
       "name": "冻结子进程首次暂停和真实单步",
@@ -31,7 +31,7 @@
       "name": "冻结性能分析子进程",
       "passed": true,
       "calls": 12,
-      "elapsed_ms": 2.8622
+      "elapsed_ms": 3.2704
     },
     {
       "name": "性能分析异常和异常前输出",
@@ -55,69 +55,14 @@
     }
   ],
   "executable": "Windows免安装版/PyScope/PyScope.exe",
+  "data_directory": "验收专用临时目录，不随交付包分发",
+  "port": 8768,
   "passed": true,
-  "sha256": "4187814d8d936c2fe3fc032ec295d61afc4170ee1bd8ecbb430758d5d5730982",
-  "file_count": 149,
-  "total_bytes": 31104566,
-  "validated_on": "2026-10-12",
-  "environment": "Windows 11 x64; Python 3.12.14; PyInstaller 6.22.3; build script verified with Windows PowerShell 5.1",
-  "verification_phase": "界面优化后，同步最终 static 与 templates 的冻结版复验；未重新编译可执行文件。",
-  "scope": "冻结程序 HTTP 集成验证；界面截图和交互验收另见项目文档。",
-  "data_policy": "测试使用独立临时目录；发行包无 QA 数据；没有删除用户数据。",
-  "limitations": [
-    "本次在当前 Windows 11 设备验证，未在独立干净虚拟机或其他 Windows 版本复测。",
-    "运行时包含常用标准库，不包含 NumPy、pandas 等额外第三方科学计算库。"
-  ],
-  "resource_consistency": {
-    "passed": true,
-    "file_count": 9,
-    "files": [
-      {
-        "path": "static/app.css",
-        "sha256": "1dd88567b86c5827d1f00e874b12be169d8747dd15f9e07d58233549b9f3f30c",
-        "matches_source": true
-      },
-      {
-        "path": "static/app.js",
-        "sha256": "8565857c3a335645458e6b2022ed5f074044677cc7ec929430daad20fb7bef3f",
-        "matches_source": true
-      },
-      {
-        "path": "static/favicon.svg",
-        "sha256": "effe991bbdb684cc7a8eecf0c0516e0f38f1049bfd49a6ffe12f7f95da44ae46",
-        "matches_source": true
-      },
-      {
-        "path": "static/vendor/codemirror/codemirror.css",
-        "sha256": "eb494ea972d2661ef86f7f6ac656dd6786d721e49c9c1b46e1eb967e4b6f9bf3",
-        "matches_source": true
-      },
-      {
-        "path": "static/vendor/codemirror/codemirror.js",
-        "sha256": "0644e6418c4129c9584b9b772b8b8bdb0b4fbab1efd848a98baf1fe147381f22",
-        "matches_source": true
-      },
-      {
-        "path": "static/vendor/codemirror/LICENSE",
-        "sha256": "168a4becc968f5001e2ee2e0291b6e4daabafc1894a11ade1e11d56e96096e07",
-        "matches_source": true
-      },
-      {
-        "path": "static/vendor/codemirror/python.js",
-        "sha256": "19a59ca387addb04e95002c9adbe2b8c231427ce49369ac537107e3088a6947c",
-        "matches_source": true
-      },
-      {
-        "path": "static/vendor/DEPENDENCIES.md",
-        "sha256": "56ec6ca03a43851ec5ad46d40614d54d16e0806843805f0c68de60ace9c5d9e3",
-        "matches_source": true
-      },
-      {
-        "path": "templates/index.html",
-        "sha256": "a399bd3a49e72904faa9069230266f15f9fd9d850bc1e982ea0746ecbf91c137",
-        "matches_source": true
-      }
-    ]
-  },
-  "final_resource_note": "12 项冻结 HTTP 验收完成后，同步最终桌面工作区 560px 高度 CSS 修正；9 份源码与打包资源重新逐字节核对一致。后端与可执行文件未改变。"
+  "sha256": "336e4798c21d2ad9b71d053fc9c0da868499430449f281d3f309c92145091b21",
+  "file_count": 152,
+  "total_bytes": 31171073,
+  "finished_at_utc": "2026-10-12T08:48:25.799200+00:00",
+  "own_processes_remaining": 0,
+  "port_released": true,
+  "third_party_license_components": 13
 }

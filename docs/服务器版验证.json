@@ -1,0 +1,26 @@
+{
+  "version": "1.1.0",
+  "date": "2026-10-12",
+  "tested_commit": "ca40e05a85f0ad07ca5cc53e7ea3c68d2e7aa271",
+  "ci_url": "https://github.com/1911661808-code/PyScope/actions/runs/38227212251",
+  "windows_source": {"discovered": 70, "passed": 63, "skipped": 7, "seconds": 25.474, "skip_reason": "本机无 Linux Docker；6项容器和1项服务器集成检查按环境跳过"},
+  "linux_docker": {"os": "Ubuntu 24.04", "docker": "28.0.4", "discovered": 70, "passed": 69, "skipped": 1, "seconds": 22.526, "skip_reason": "普通Docker job不运行rootless专属服务器入口检查"},
+  "linux_rootless": {"os": "Ubuntu 24.04", "docker": "29.9.0", "rootlesskit": "3.2.0", "cgroup_driver": "systemd", "cgroup_version": 2, "discovered": 70, "passed": 70, "skipped": 0, "seconds": 31.338},
+  "coverage": [
+    "未登录API拒绝、随机会话与CSRF轮换、退出撤销、过期、密码更新失效、限流与Cookie属性",
+    "不同账号的调试、命令、历史、导出、删除权限隔离，错误Unicode与非法来源拒绝",
+    "真实Docker断点/单步/继续、AST与语法错误、性能分析、超时和恶意协议终止",
+    "容器非root、无外网、无宿主环境秘密、无Docker socket、只读根目录、临时目录不跨运行保留",
+    "容器实际memory/cpu/pids/swap限制与no_new_privs、capabilities、网络状态探针",
+    "真实server.py+Waitress登录→执行→历史→注销→SIGTERM清理暂停容器",
+    "Windows免安装版12项HTTP验证，另见免安装版验证.json"
+  ],
+  "browser_ui": {
+    "backend": "显式本地测试夹具，仅验证页面与认证交互；不作为容器隔离证据",
+    "viewports": ["1280x720", "390x844"],
+    "checks": ["错误密码反馈", "登录进入工作空间", "CSRF下的启动和单步", "退出停止调试并返回登录页", "移动端登录页与账号栏", "浏览器控制台无脚本错误"],
+    "screenshots": ["screenshots/login.png", "screenshots/login-mobile.png"]
+  },
+  "not_verified": ["用户腾讯云主机部署", "systemd应用unit在目标机运行", "Nginx及公网TLS", "gVisor runtime"],
+  "limits": "Docker共享宿主内核，面向受控账号；合法形状的执行协议不具备防篡改保证。"
+}

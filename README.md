@@ -22,7 +22,7 @@ Windows 免安装版仍以本地模式运行。服务器新增入口为 `server.
 
 打开交付包中的 `Windows免安装版/PyScope/PyScope.exe`，无需另行安装 Python。保留整个 `PyScope` 文件夹，程序依赖旁边的 `_internal` 资源目录。程序启动后打开本地浏览器；运行数据保存在可执行文件旁的 `data` 目录。
 
-免安装版已完成 12 项 HTTP 集成验证，包括调试控制、中文输出、标准库调用、AST、性能分析、异常、跨源拒绝、历史保存与重启恢复删除，以及 9 份模板与静态资源的一致性。
+免安装版已完成 12 项 HTTP 集成验证，包括调试控制、中文输出、标准库调用、AST、性能分析、异常、跨源拒绝、历史保存与重启恢复删除，以及模板与静态资源的一致性。
 
 ## 启动源码版
 
@@ -119,7 +119,7 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests -v
 ```
 
-原有 33 项 API 与引擎检查保留。v1.1.0 增加 10 项认证/授权检查、20 项执行边界检查，以及 6 项必须显式启用的真实 Docker 集成检查。Windows 无 Docker 时，容器检查明确跳过；GitHub Actions 分别在普通 Docker 和 rootless Docker 上构建镜像并验证真实隔离、资源限制、调试控制和容器清理。[查看 CI 结果](https://github.com/1911661808-code/PyScope/actions)。认证单测使用显式替代后端，不能作为容器验证证据。
+原有 33 项 API 与引擎检查保留。v1.1.0 增加 10 项认证/授权检查、20 项执行边界检查、6 项真实 Docker 集成检查和 1 项完整服务器入口检查。2026 年 10 月 12 日，Ubuntu 24.04 上的 rootless Docker 29.9.0、cgroup v2 环境完成 **70 项检查全部通过**，包含真实 `server.py`/Waitress 的登录、代码执行、历史、注销与 SIGTERM 清理。普通 Docker 28.0.4 环境 69 项通过、1 项 rootless 专属检查跳过；Windows 63 项通过、7 项 Docker 环境检查跳过。[查看本次 CI 结果](https://github.com/1911661808-code/PyScope/actions/runs/38227212251)。认证单测使用显式替代后端；真实服务器与容器验证由另外的集成检查提供。完整记录见 `docs/服务器版验证.json`。
 
 性能实验数据保存在 `docs/benchmark_results.json`。相同输入 `fibonacci(22)` 下，两种实现均输出 `17711`。重复递归函数调用 57,313 次，记忆化递归调用 43 次。每种实现运行 5 次，包含 cProfile 开销的代码执行时间中位数分别为 6.7365 ms 与 0.0719 ms；该时间不包含进程启动，不能当作其他机器上的性能保证。
 
